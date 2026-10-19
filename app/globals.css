@@ -1,26 +1,240 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --success-50: #ecfdf5;
+  --success-100: #d1fae5;
+  --success-500: #10b981;
+  --success-600: #059669;
+  --danger-50: #fef2f2;
+  --danger-100: #fee2e2;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-600: #d97706;
+  --border: #e2e8f0;
+  --muted: #64748b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-success-50: var(--success-50);
+  --color-success-100: var(--success-100);
+  --color-success-500: var(--success-500);
+  --color-success-600: var(--success-600);
+  --color-danger-50: var(--danger-50);
+  --color-danger-100: var(--danger-100);
+  --color-danger-500: var(--danger-500);
+  --color-danger-600: var(--danger-600);
+  --color-warning-50: var(--warning-50);
+  --color-warning-100: var(--warning-100);
+  --color-warning-600: var(--warning-600);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.student-theme-shell {
+  background:
+    radial-gradient(ellipse at 8% 0%, rgb(253 230 255 / 72%), transparent 34rem),
+    radial-gradient(ellipse at 94% 22%, rgb(219 234 254 / 75%), transparent 30rem),
+    #f8faff;
+}
+
+.student-theme {
+  font-family: "Trebuchet MS", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+}
+
+.student-theme-header {
+  border-color: transparent;
+  background: rgb(255 255 255 / 84%);
+  box-shadow: 0 8px 28px rgb(82 78 135 / 8%);
+  backdrop-filter: blur(16px);
+}
+
+.student-theme-header a[aria-label="Profil və parametrlər"] {
+  border-radius: 9999px;
+  background: white;
+  padding: 0.3rem 0.85rem 0.3rem 0.35rem;
+  box-shadow: 0 5px 16px rgb(82 78 135 / 12%);
+}
+
+.student-theme .bg-white.border,
+.student-theme .bg-surface.border {
+  border-color: transparent;
+  border-radius: 1.5rem;
+  box-shadow: 0 14px 34px rgb(82 78 135 / 10%);
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.student-theme .rounded-xl.border {
+  border-color: transparent;
+  box-shadow: 0 7px 18px rgb(82 78 135 / 8%);
+}
+
+.student-theme .border-b,
+.student-theme .border-t {
+  border-color: rgb(226 232 240 / 55%);
+}
+
+.student-theme .bg-white.border:hover,
+.student-theme .bg-surface.border:hover {
+  box-shadow: 0 18px 40px rgb(82 78 135 / 15%);
+}
+
+.student-theme h1,
+.student-theme h2,
+.student-theme h3 {
+  letter-spacing: -0.025em;
+}
+
+.student-theme [role="tablist"] button {
+  border-radius: 9999px;
+  box-shadow: 0 5px 14px rgb(82 78 135 / 8%);
+}
+
+.student-theme input:not([type="checkbox"]):not([type="radio"]) {
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgb(82 78 135 / 5%);
+}
+
+.student-theme button:not(:disabled) {
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.student-theme button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.student-theme-header nav a,
+.student-theme-header button,
+.student-theme .rounded-xl,
+.student-theme .rounded-2xl {
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+.student-theme-header nav a:hover,
+.student-theme-header button:hover {
+  box-shadow: 0 6px 16px rgb(82 78 135 / 12%);
+}
+
+.student-theme button:focus-visible,
+.student-theme a:focus-visible,
+.student-theme input:focus-visible {
+  outline: 3px solid rgb(167 139 250 / 60%);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-theme *,
+  .student-theme-header * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.task-content-html p {
+  margin-block: 0.75rem;
+}
+
+.task-content-html h2,
+.task-content-html h3,
+.task-content-html h4 {
+  margin-block: 1rem 0.5rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.task-content-html h2 {
+  font-size: 1.25rem;
+}
+
+.task-content-html h3 {
+  font-size: 1.125rem;
+}
+
+.task-content-html h4 {
+  font-size: 1rem;
+}
+
+.task-content-html ul,
+.task-content-html ol {
+  margin-block: 0.75rem;
+  padding-inline-start: 1.5rem;
+}
+
+.task-content-html ul {
+  list-style: disc;
+}
+
+.task-content-html ol {
+  list-style: decimal;
+}
+
+.task-content-html a {
+  color: var(--brand-700);
+  text-decoration: underline;
+}
+
+.task-content-html blockquote {
+  margin-block: 0.75rem;
+  border-inline-start: 3px solid var(--border);
+  padding-inline-start: 1rem;
+}
+
+.task-content-html table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.task-content-html th,
+.task-content-html td {
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  text-align: start;
+}
+
+.task-content-html th {
+  font-weight: 700;
+}
+
+.task-content-html pre {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--surface-muted);
+  padding: 0.75rem;
 }

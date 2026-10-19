@@ -1,0 +1,214 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { DashboardShell } from "@/src/components/app/DashboardShell";
+import { RoleGate } from "@/src/components/app/RoleGate";
+import { Button } from "@/src/components/ui/Button";
+import { Card } from "@/src/components/ui/Card";
+import { TaskContent } from "@/src/components/tasks/TaskContent";
+import { requestJson } from "@/src/lib/client-api";
+import type { TaskContentBlock, TaskType } from "@/src/models/Task";
+
+interface HomeworkSubmissionRow {
+  answer: unknown;
+  isCorrect: boolean;
+  submittedAt: string;
+  studentId: {
+    _id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  } | null;
+}
+
+interface ResultTask {
+  _id: string;
+  title: string;
+  prompt: string;
+  contentBlocks: TaskContentBlock[];
+  type: TaskType;
+  options: { id: string; text: string }[];
+  correctAnswer: unknown;
+  explanation?: string;
+  submissions: HomeworkSubmissionRow[];
+}
+
+interface ResultData {
+  assignment: {
+    id: string;
+    title: string;
+    dueAt: string | null;
+    deadlinePassed: boolean;
+  };
+  tasks: ResultTask[];
+}
+
+function answerText(answer: unknown, task: ResultTask) {
+  const values = Array.isArray(answer) ? answer : [answer];
+  return values
+    .map((value) => {
+      if (typeof value !== "string") return String(value);
+      return task.options.find((option) => option.id === value)?.text ?? value;
+    })
+    .join(" → ");
+}
+
+export function AdminHomeworkResults({ assignmentId }: { assignmentId: string }) {
+  return (
+    <RoleGate role="admin">
+      {(user) => (
+        <AdminHomeworkResultsContent
+          assignmentId={assignmentId}
+          name={user.name}
+          avatar={user.avatar}
+        />
+      )}
+    </RoleGate>
+  );
+}
+
+function AdminHomeworkResultsContent({
+  assignmentId,
+  name,
+  avatar,
+}: {
+  assignmentId: string;
+  name: string;
+  avatar: string;
+}) {
+  const [data, setData] = useState<ResultData | null>(null);
+  const [taskIndex, setTaskIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void requestJson<ResultData>(`/api/assignments/${assignmentId}`)
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled)
+          setError(cause instanceof Error ? cause.message : "Nəticələri yükləmək olmadı.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId]);
+
+  const task = data?.tasks[taskIndex];
+
+  return (
+    <DashboardShell name={name} role="admin" avatar={avatar}>
+      <div className="mb-5">
+        <Link href="/admin/assignments" className="text-sm font-semibold text-brand-700">
+          ← Ev tapşırıqlarına qayıt
+        </Link>
+        {data && (
+          <>
+            <h1 className="mt-3 text-3xl font-bold">{data.assignment.title}</h1>
+            <p className="mt-2 text-sm text-muted">
+              Tapşırıq üzrə hər sualın cavab sıralaması · Düzgün cavablar öncə, sonra cavablandırma vaxtı
+            </p>
+          </>
+        )}
+      </div>
+      {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
+      {loading ? (
+        <p className="py-12 text-center text-muted">Nəticələr yüklənir...</p>
+      ) : data && task ? (
+        <>
+          <div role="tablist" aria-label="Tapşırıq sualları" className="mb-5 flex gap-2 overflow-x-auto">
+            {data.tasks.map((item, index) => (
+              <Button
+                key={item._id}
+                type="button"
+                role="tab"
+                aria-selected={taskIndex === index}
+                size="sm"
+                variant={taskIndex === index ? "primary" : "outline"}
+                onClick={() => setTaskIndex(index)}
+              >
+                {index + 1}. sual · {item.submissions.length}
+              </Button>
+            ))}
+          </div>
+          <Card>
+            <h2 className="text-xl font-bold">{task.title}</h2>
+            <TaskContent className="mt-3" contentBlocks={task.contentBlocks} prompt={task.prompt} />
+            <div className="mt-5 rounded-xl bg-success-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-success-600">Düzgün cavab</p>
+              <p className="mt-1 font-semibold text-success-600">{answerText(task.correctAnswer, task)}</p>
+              {task.explanation && <p className="mt-2 text-sm text-foreground">{task.explanation}</p>}
+            </div>
+          </Card>
+          <section className="mt-6">
+            <h2 className="mb-3 text-lg font-bold">Cavablandıran şagirdlər ({task.submissions.length})</h2>
+            {task.submissions.length ? (
+              <div className="space-y-3">
+                {task.submissions.map((submission, index) => (
+                  <Card
+                    key={`${submission.studentId?._id ?? "unknown"}-${submission.submittedAt}`}
+                    className={`flex items-center gap-4 p-4 ${
+                      submission.isCorrect ? "border-success-100 bg-success-50/50" : ""
+                    }`}
+                  >
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${
+                      index === 0
+                        ? "bg-amber-300 text-amber-950"
+                        : index === 1
+                          ? "bg-slate-200 text-slate-700"
+                          : index === 2
+                            ? "bg-orange-200 text-orange-900"
+                            : "bg-surface-muted text-muted"
+                    }`}>
+                      {index + 1}
+                    </span>
+                    {submission.studentId?.avatar ? (
+                      <Image
+                        src={submission.studentId.avatar}
+                        alt=""
+                        width={44}
+                        height={44}
+                        className="h-11 w-11 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="h-11 w-11 rounded-full bg-surface-muted" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">
+                        {submission.studentId?.name ?? "Şagird hesabı tapılmadı"}
+                      </p>
+                      <p className="mt-1 break-words text-sm text-muted">
+                        {answerText(submission.answer, task)}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className={`text-sm font-semibold ${
+                        submission.isCorrect ? "text-success-600" : "text-danger-600"
+                      }`}>
+                        {submission.isCorrect ? "Düzgün" : "Səhv"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {new Date(submission.submittedAt).toLocaleString("az-AZ")}
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="py-10 text-center text-muted">Bu suala hələ cavab verilməyib.</Card>
+            )}
+          </section>
+        </>
+      ) : data ? (
+        <Card className="py-10 text-center text-muted">Bu ev tapşırığında sual yoxdur.</Card>
+      ) : null}
+    </DashboardShell>
+  );
+}
