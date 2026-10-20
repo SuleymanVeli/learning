@@ -81,13 +81,13 @@ function StudentProfileContent({
   return (
     <DashboardShell name={name} role="student" avatar={avatar}>
       <div className="mb-7">
-        <p className="text-sm font-bold text-violet-600">🌟 Sənin hesabın</p>
+        <p className="text-sm font-extrabold text-violet-700">🌟 Sənin hesabın</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight">Mənim profilim</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 font-semibold text-slate-500">
           Adını, avatarını və hesab şifrəsini dəyiş.
         </p>
       </div>
-      <Card className="mx-auto max-w-2xl shadow-xl shadow-violet-100">
+      <Card className="student-content-card mx-auto max-w-2xl p-6 sm:p-8">
         <form className="space-y-6" onSubmit={saveProfile}>
           {error && (
             <p role="alert" className="rounded-xl bg-danger-50 px-4 py-3 text-sm text-danger-600">
@@ -116,7 +116,7 @@ function StudentProfileContent({
                   aria-label={`Avatar ${path.match(/avatar-(\d+)/)?.[1]}`}
                   aria-pressed={avatar === path}
                   onClick={() => setAvatar(path)}
-                  className={`rounded-full p-1 transition ${
+                  className={`student-avatar-choice rounded-full p-1 transition ${
                     avatar === path
                       ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-200 ring-2 ring-violet-200"
                       : "bg-white shadow-md shadow-slate-200 hover:shadow-lg"
@@ -165,7 +165,7 @@ function StudentProfileContent({
             />
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="student-action-button">
               {saving ? "Yadda saxlanılır..." : "Dəyişiklikləri yadda saxla"}
             </Button>
           </div>

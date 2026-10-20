@@ -62,30 +62,44 @@ function StudentLiveLessonsContent({
 
   return (
     <DashboardShell name={name} role="student" avatar={avatar}>
-      <h1 className="mb-6 text-3xl font-bold">Canlı dərslər</h1>
+      <div className="mb-6">
+        <p className="text-sm font-extrabold text-sky-700">🎮 Birlikdə öyrənək</p>
+        <h1 className="mt-1 text-3xl font-black">Canlı dərslər</h1>
+      </div>
       {error && <p role="alert" className="mb-4 text-danger-600">{error}</p>}
       {lessons.length ? (
-        lessons.map((lesson) => (
-          <Card key={lesson.id}>
-            <p className="text-sm font-semibold text-brand-700">
-              {lesson.groupName ?? "Dərs otağı"}
-            </p>
-            <h2 className="mt-1 text-xl font-bold">{lesson.title}</h2>
-            <p className="mt-2 text-sm text-muted">
-              {lesson.hasStarted
-                ? `Aktiv tab ${lesson.taskIndex + 1} / ${lesson.taskCount}`
-                : "Müəllim dərsi başladana qədər sual göstərilmir."}
-            </p>
+        <div className="student-homework-list flex flex-col gap-3">
+          {lessons.map((lesson) => (
             <Link
+              key={lesson.id}
               href={`/student/live-lessons/${lesson.id}`}
-              className="mt-4 inline-flex rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white"
+              className="student-homework-list-row student-card-reading flex items-center gap-3 rounded-3xl px-4 py-3 text-left transition sm:gap-4 sm:px-5"
             >
-              {lesson.hasStarted ? "Dərsə qoşul" : "Dərs otağına daxil ol"}
+              <span className="student-homework-list-icon" aria-hidden="true">🎮</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-base font-black text-slate-800 sm:text-lg">
+                  {lesson.title}
+                </span>
+                <span className="mt-1 block truncate text-xs font-semibold text-slate-500">
+                  {lesson.groupName ?? "Dərs otağı"}
+                  {lesson.hasStarted
+                    ? ` · Sual ${lesson.taskIndex + 1} / ${lesson.taskCount}`
+                    : " · Müəllim başladanda qoşul"}
+                </span>
+              </span>
+              <span className={`student-homework-status shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${
+                lesson.hasStarted
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-amber-100 text-amber-800"
+              }`}>
+                {lesson.hasStarted ? "Canlıdır" : "Gözləmədə"}
+              </span>
+              <span aria-hidden="true" className="student-list-arrow">›</span>
             </Link>
-          </Card>
-        ))
+          ))}
+        </div>
       ) : (
-        <Card className="text-center text-muted">
+        <Card className="student-content-card text-center text-slate-500">
           Hazırda aktiv canlı dərs yoxdur. Səhifə avtomatik yenilənir.
         </Card>
       )}

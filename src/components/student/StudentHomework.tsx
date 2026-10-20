@@ -49,8 +49,6 @@ function assignmentState(assignment: AssignmentSummary) {
     return {
       label: "Bitmiş",
       icon: "🏆",
-      card:
-        "bg-gradient-to-br from-emerald-50 via-white to-green-100 shadow-emerald-200/70",
       badge: "bg-emerald-100 text-emerald-800",
       progress: "bg-emerald-500",
     };
@@ -59,8 +57,6 @@ function assignmentState(assignment: AssignmentSummary) {
     return {
       label: "Yarımçıq",
       icon: "🧩",
-      card:
-        "bg-gradient-to-br from-amber-50 via-white to-orange-100 shadow-amber-200/70",
       badge: "bg-amber-100 text-amber-800",
       progress: "bg-amber-500",
     };
@@ -68,12 +64,17 @@ function assignmentState(assignment: AssignmentSummary) {
   return {
     label: "Yeni",
     icon: "✨",
-    card:
-      "homework-new-card bg-gradient-to-br from-violet-100 via-white to-fuchsia-100 shadow-fuchsia-200/80",
     badge: "bg-violet-100 text-violet-800",
     progress: "bg-violet-500",
   };
 }
+
+const assignmentThemes = [
+  { className: "student-card-math", illustration: "🔢" },
+  { className: "student-card-reading", illustration: "📖" },
+  { className: "student-card-puzzle", illustration: "🧩" },
+  { className: "student-card-art", illustration: "🎨" },
+] as const;
 
 export function StudentHomework() {
   return (
@@ -151,7 +152,6 @@ function StudentHomeworkContent({
   const task = details?.tasks[selectedTaskIndex];
   const answerKey = task ? `${details?.assignment.id}:${task._id}` : "";
   const answer = answerDrafts[answerKey] ?? "";
-  const selectedAssignment = assignments.find((item) => item._id === selectedId);
   const detailsLoading =
     loading ||
     (Boolean(selectedId) && details?.assignment.id !== selectedId && !error);
@@ -210,7 +210,6 @@ function StudentHomeworkContent({
       {!selectedId ? (
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-violet-600">📚 Tapşırıq seç</p>
             <h1 className="mt-1 text-3xl font-black sm:text-4xl">Ev tapşırıqları</h1>
           </div>
           <span className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-violet-700 shadow-lg shadow-violet-100">
@@ -218,21 +217,20 @@ function StudentHomeworkContent({
           </span>
         </div>
       ) : (
-        <div className="mb-5">
-          <Button
+        <div className="mb-5 flex min-w-0 items-center gap-3">
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            className="mb-4 rounded-full bg-white shadow-md shadow-violet-100"
+            aria-label="Tapşırıqlar siyahısına qayıt"
+            className="student-icon-back shrink-0"
             onClick={() => {
               setSelectedId("");
               setDetails(null);
               setError("");
             }}
           >
-            ← Tapşırıqlar siyahısı
-          </Button>
-          <h1 className="text-2xl font-black sm:text-3xl">
+            ←
+          </button>
+          <h1 className="min-w-0 truncate text-xl font-black sm:text-2xl">
             {details?.assignment.title ?? "Ev tapşırığı"}
           </h1>
         </div>
@@ -242,9 +240,10 @@ function StudentHomeworkContent({
         loading ? (
           <p className="py-12 text-center text-muted">Tapşırıqlar yüklənir...</p>
         ) : assignments.length ? (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {assignments.map((assignment) => {
+          <div className="student-homework-list flex flex-col gap-3">
+            {assignments.map((assignment, index) => {
               const state = assignmentState(assignment);
+              const theme = assignmentThemes[index % assignmentThemes.length];
               const progress = assignment.taskCount
                 ? Math.min(100, (assignment.submittedCount / assignment.taskCount) * 100)
                 : 0;
@@ -258,101 +257,77 @@ function StudentHomeworkContent({
                     setSelectedTaskIndex(0);
                     setSelectedId(assignment._id);
                   }}
-                  className={`group relative flex min-h-64 w-full flex-col overflow-hidden rounded-[2rem] p-5 text-left shadow-xl transition duration-200 hover:-translate-y-1 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 ${state.card}`}
+                  className={`student-homework-list-row ${theme.className} group flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 sm:gap-4 sm:px-5`}
                 >
-                  <span aria-hidden="true" className="absolute -right-7 -top-8 text-8xl opacity-20 transition group-hover:rotate-12 group-hover:scale-110">
-                    {state.icon}
-                  </span>
-                  <div className="relative flex w-full items-center justify-between gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${state.badge}`}>
-                      {state.label}
-                    </span>
-                    {assignment.dueAt && (
-                      <span className="text-right text-xs font-semibold text-slate-500">
-                        Son tarix · {new Date(assignment.dueAt).toLocaleDateString("az-AZ")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative mt-8">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                      {typeof assignment.groupId === "string" ? "Qrup" : assignment.groupId.name}
-                    </p>
-                    <h2 className="mt-1 line-clamp-2 text-xl font-black text-slate-800">
+                  <span className="student-homework-list-icon" aria-hidden="true">{theme.illustration}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-black text-slate-800 sm:text-lg">
                       {assignment.title}
-                    </h2>
-                  </div>
-                  <div className="relative mt-auto w-full pt-6">
-                    <div className="mb-2 flex justify-between text-xs font-bold text-slate-600">
-                      <span>{assignment.submittedCount} / {assignment.taskCount} sual</span>
-                      <span>{Math.round(progress)}%</span>
-                    </div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-white/80 shadow-inner">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${state.progress}`}
+                    </span>
+                    <span className="mt-1 block text-xs font-semibold text-slate-500">
+                      {assignment.submittedCount} / {assignment.taskCount} sual
+                      {assignment.dueAt
+                        ? ` · Son tarix ${new Date(assignment.dueAt).toLocaleDateString("az-AZ")}`
+                        : ""}
+                    </span>
+                    <span className="student-homework-list-progress mt-2 block h-1.5 overflow-hidden rounded-full">
+                      <span
+                        className={`block h-full rounded-full transition-all duration-300 ${state.progress}`}
                         style={{ width: `${progress}%` }}
                       />
-                    </div>
-                    <span className="mt-4 inline-flex items-center gap-1 text-sm font-extrabold text-violet-700">
-                      Aç və başla <span aria-hidden="true">→</span>
                     </span>
-                  </div>
+                  </span>
+                  <span className={`student-homework-status shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${state.badge}`}>
+                    <span aria-hidden="true">{state.icon} </span>
+                    {state.label}
+                  </span>
                 </button>
               );
             })}
           </div>
         ) : (
-          <Card className="text-center text-muted">Hazırda ev tapşırığı yoxdur.</Card>
+          <Card className="student-content-card text-center text-muted">Hazırda ev tapşırığı yoxdur.</Card>
         )
       ) : detailsLoading ? (
         <p className="py-12 text-center text-muted">Tapşırıq yüklənir...</p>
       ) : details && task ? (
-        <Card className="overflow-hidden bg-gradient-to-br from-white to-violet-50/70 p-0 shadow-xl shadow-violet-100/70">
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-violet-100/80 via-fuchsia-50 to-sky-100/80 px-5 py-4">
-            <div>
-              <p className="text-sm font-bold text-violet-700">
-                {typeof selectedAssignment?.groupId === "string"
-                  ? "Qrup"
-                  : selectedAssignment?.groupId.name}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-slate-600">
-                {details.tasks.filter((item) => item.submission).length} / {details.tasks.length} sual tamamlanıb
-              </p>
-            </div>
-            {details.assignment.dueAt && (
-              <span className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm">
-                Son tarix · {new Date(details.assignment.dueAt).toLocaleDateString("az-AZ")}
-              </span>
-            )}
-          </div>
-          <div role="tablist" aria-label="Ev tapşırığının sualları" className="flex gap-2 overflow-x-auto p-4">
+        <Card className="student-content-card student-homework-detail overflow-hidden p-0">
+          <div
+            role="tablist"
+            aria-label="Ev tapşırığının sualları"
+            className="student-question-tabs flex flex-wrap gap-2 px-4 py-4"
+          >
             {details.tasks.map((item, index) => (
               <button
                 key={item._id}
                 type="button"
                 role="tab"
                 aria-selected={selectedTaskIndex === index}
+                aria-label={`Sual ${index + 1}${item.submission ? ", tamamlanıb" : ""}`}
                 onClick={() => {
                   setSelectedTaskIndex(index);
                 }}
-                className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-bold shadow-md transition ${
+                className={`student-question-tab ${
                   selectedTaskIndex === index
-                    ? "bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white shadow-purple-200"
+                    ? "is-selected"
                     : item.submission
-                      ? "bg-emerald-100 text-emerald-700 shadow-emerald-100"
-                      : "bg-white text-slate-600 shadow-slate-200/70"
+                      ? "is-complete"
+                      : ""
                 }`}
               >
-                {index + 1}. sual
+                {item.submission ? "✓" : index + 1}
               </button>
             ))}
           </div>
-          <div className="p-5 pt-2 sm:p-7 sm:pt-2">
-            <h3 className="text-xl font-extrabold">{task.title}</h3>
+          <div className="student-homework-content">
+            <h3 className="break-words text-xl font-black leading-snug sm:text-2xl">{task.title}</h3>
             <TaskContent
-              className="mt-3"
+              className="task-content-html"
               contentBlocks={task.contentBlocks}
               prompt={task.prompt}
             />
+          </div>
+          <div className="student-homework-answer">
             {task.submission ? (
               <div className={`mt-5 rounded-xl p-4 font-semibold ${
                 task.submission.isCorrect
@@ -366,7 +341,7 @@ function StudentHomeworkContent({
                 Bu tapşırığın son tarixi bitib və yeni cavab göndərmək mümkün deyil.
               </p>
             ) : (
-              <form className="mt-5 space-y-4" onSubmit={submit}>
+              <form id={`homework-answer-${task._id}`} className="mt-5 space-y-4" onSubmit={submit}>
                 {task.type === "short_answer" ? (
                   <Input
                     label="Cavabın"
@@ -396,14 +371,12 @@ function StudentHomeworkContent({
                                   : selected.filter((id) => id !== option.id),
                               )
                             }
-                            className={`rounded-2xl px-4 py-3 text-left text-sm font-semibold shadow-md transition ${
-                              index !== -1
-                                ? "bg-violet-100 text-violet-800 shadow-violet-200"
-                                : "bg-white text-slate-700 shadow-slate-200/70 hover:bg-sky-50"
+                            className={`student-answer-option min-h-14 w-full rounded-2xl border-2 px-4 py-3 text-left text-sm font-bold transition ${
+                              index !== -1 ? "is-selected" : ""
                             }`}
                           >
                             {index !== -1 && (
-                              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                              <span className="student-answer-order mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold">
                                 {index + 1}
                               </span>
                             )}
@@ -413,7 +386,7 @@ function StudentHomeworkContent({
                       })}
                     </div>
                     {Array.isArray(answer) && answer.length > 0 && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setAnswer([])}>
+                      <Button type="button" variant="outline" size="sm" className="student-flat-button" onClick={() => setAnswer([])}>
                         Seçimi sıfırla
                       </Button>
                     )}
@@ -428,10 +401,8 @@ function StudentHomeworkContent({
                         ? answer.includes(option.id)
                         : answer === option.id;
                       return (
-                        <label key={option.id} className={`flex cursor-pointer items-center gap-3 rounded-2xl p-4 shadow-md transition ${
-                          chosen
-                            ? "bg-sky-100 text-sky-900 shadow-sky-200"
-                            : "bg-white shadow-slate-200/70 hover:bg-violet-50"
+                        <label key={option.id} className={`student-answer-option flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-3 font-bold transition ${
+                          chosen ? "is-selected" : ""
                         }`}>
                           <input
                             type={task.type === "multiple_choice" ? "checkbox" : "radio"}
@@ -449,7 +420,7 @@ function StudentHomeworkContent({
                                   : [...currentIds, option.id],
                               );
                             }}
-                            className="h-4 w-4 accent-brand-600"
+                            className="h-5 w-5 shrink-0 accent-sky-600"
                           />
                           {option.text}
                         </label>
@@ -457,27 +428,41 @@ function StudentHomeworkContent({
                     })}
                   </fieldset>
                 )}
-                <Button type="submit" disabled={saving || (Array.isArray(answer) ? !answer.length : !answer.trim())}>
-                  {saving ? "Göndərilir..." : "Cavabı yoxla"}
-                </Button>
               </form>
             )}
-            <div className="mt-5 flex justify-between">
+            <div className="mt-6 grid grid-cols-3 gap-3">
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
+                className="student-flat-button h-10 w-full rounded-xl px-2"
                 disabled={selectedTaskIndex === 0}
                 onClick={() => setSelectedTaskIndex((index) => index - 1)}
               >
-                Əvvəlki sual
+                ← Əvvəlki
               </Button>
+              {task.submission || details.assignment.deadlinePassed ? (
+                <span aria-hidden="true" />
+              ) : (
+                <Button
+                  type="submit"
+                  form={`homework-answer-${task._id}`}
+                  size="sm"
+                  className="student-flat-button h-10 w-full px-2"
+                  disabled={saving || (Array.isArray(answer) ? !answer.length : !answer.trim())}
+                >
+                  {saving ? "Göndərilir..." : "Təsdiqlə"}
+                </Button>
+              )}
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
+                className="student-flat-button h-10 w-full rounded-xl px-2"
                 disabled={selectedTaskIndex >= details.tasks.length - 1}
                 onClick={() => setSelectedTaskIndex((index) => index + 1)}
               >
-                Növbəti sual
+                Növbəti →
               </Button>
             </div>
           </div>
@@ -485,9 +470,7 @@ function StudentHomeworkContent({
       ) : selectedId && error ? (
         <Card className="text-center text-muted">Tapşırığı açmaq mümkün olmadı. Yenidən cəhd et.</Card>
       ) : null}
-      <Link href="/student" className="mt-5 inline-block text-sm font-semibold text-brand-700">
-        ← Panelə qayıt
-      </Link>
+      
     </DashboardShell>
   );
 }

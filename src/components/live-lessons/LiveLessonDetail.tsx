@@ -225,31 +225,54 @@ function LiveLessonDetailContent({
 
   return (
     <DashboardShell name={user.name} role={role} avatar={user.avatar}>
-      <Link
-        href={role === "admin" ? "/admin/live-lessons" : "/student/live-lessons"}
-        className="text-sm font-semibold text-brand-700 hover:underline"
-      >
-        ← Canlı dərslərə qayıt
-      </Link>
-      <div className="mb-6 mt-4 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className={`text-sm font-bold ${role === "student" ? "text-violet-600" : "text-brand-700"}`}>
-            {role === "student" ? "🚀 " : ""}{lesson.groupName}
-          </p>
-          <h1 className="mt-1 text-3xl font-black">{lesson.title}</h1>
+      {role === "student" ? (
+        <div className="mb-6 flex min-w-0 items-center gap-3">
+          <Link
+            href="/student/live-lessons"
+            aria-label="Canlı dərslər siyahısına qayıt"
+            className="student-icon-back shrink-0"
+          >
+            ←
+          </Link>
+          <h1 className="min-w-0 flex-1 truncate text-xl font-black sm:text-2xl">
+            {lesson.title}
+          </h1>
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-extrabold ${
+              lesson.status === "live"
+                ? "bg-emerald-100 text-emerald-800"
+                : lesson.status === "ended"
+                  ? "bg-slate-100 text-slate-600"
+                  : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {lesson.status === "live" ? "Canlı" : lesson.status === "ended" ? "Bitib" : "Hazır"}
+          </span>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-semibold ${
-            lesson.status === "live"
-              ? "bg-success-50 text-success-600"
-              : lesson.status === "ended"
-                ? "bg-surface-muted text-muted"
-                : "bg-warning-50 text-warning-600"
-          }`}
-        >
-          {lesson.status === "live" ? "Canlı" : lesson.status === "ended" ? "Bitib" : "Hazır"}
-        </span>
-      </div>
+      ) : (
+        <>
+          <Link
+            href="/admin/live-lessons"
+            className="text-sm font-semibold text-brand-700 hover:underline"
+          >
+            ← Canlı dərslərə qayıt
+          </Link>
+          <div className="mb-6 mt-4 flex flex-wrap items-end justify-between gap-4">
+            <h1 className="mt-1 text-3xl font-black">{lesson.title}</h1>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                lesson.status === "live"
+                  ? "bg-success-50 text-success-600"
+                  : lesson.status === "ended"
+                    ? "bg-surface-muted text-muted"
+                    : "bg-warning-50 text-warning-600"
+              }`}
+            >
+              {lesson.status === "live" ? "Canlı" : lesson.status === "ended" ? "Bitib" : "Hazır"}
+            </span>
+          </div>
+        </>
+      )}
       {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
       {notice && <p role="status" className="mb-4 rounded-xl bg-success-50 p-3 text-sm text-success-600">{notice}</p>}
 
@@ -267,12 +290,14 @@ function LiveLessonDetailContent({
       )}
 
       <Card className={`overflow-hidden p-0 ${
-        role === "student" ? "shadow-xl shadow-sky-100" : ""
+        role === "student" ? "student-content-card student-live-detail" : ""
       }`}>
         <div
           role="tablist"
           aria-label="Dərs sualları"
-          className="flex gap-2 overflow-x-auto border-b border-border p-3"
+          className={`flex items-center gap-2 overflow-x-auto border-b border-border p-3 ${
+            role === "student" ? "student-live-tabs" : ""
+          }`}
         >
           {lesson.tabs.map((task, index) => {
             const active =
@@ -285,6 +310,7 @@ function LiveLessonDetailContent({
                 type="button"
                 role="tab"
                 aria-selected={active}
+                aria-label={`Sual ${index + 1}: ${task.title}`}
                 onClick={() => role === "admin" && setSelectedTab(index)}
                 className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold ${
                   active
@@ -294,16 +320,23 @@ function LiveLessonDetailContent({
                       : role === "student"
                         ? "bg-white text-slate-600 shadow-md shadow-slate-200/70"
                         : "bg-surface-muted text-foreground"
-                } ${role === "admin" ? "cursor-pointer" : "cursor-default"}`}
+                } ${role === "admin" ? "cursor-pointer" : "cursor-default"} ${
+                  role === "student" ? "student-live-tab" : ""
+                }`}
               >
-                {index + 1}. {task.title}
+                {role === "student" ? index + 1 : `${index + 1}. ${task.title}`}
               </button>
             );
           })}
+          {role === "student" && (
+            <span className="student-live-clock ml-auto shrink-0 rounded-xl px-3 py-1 font-mono text-lg font-black" aria-live="polite">
+              {Math.floor(secondsRemaining / 60)}:{String(secondsRemaining % 60).padStart(2, "0")}
+            </span>
+          )}
         </div>
 
         {readyTask && (role === "admin" || lesson.hasStarted) ? (
-          <div className="p-5 sm:p-7">
+          <div className={role === "student" ? "student-live-content" : "p-5 sm:p-7"}>
             {role === "admin" && (
               <div className="mb-5 flex flex-wrap items-end gap-3">
                 <label className="block">
@@ -348,18 +381,12 @@ function LiveLessonDetailContent({
                 )}
               </div>
             )}
-            {role === "student" && (
-              <div className="mb-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-sky-100 to-violet-100 px-5 py-4 shadow-md shadow-sky-100">
-                <span className="font-bold text-violet-800">
-                  Sual {lesson.activeTaskIndex + 1} / {lesson.tabs.length}
-                </span>
-                <span className="rounded-xl bg-white px-3 py-1 font-mono text-lg font-black text-violet-700 shadow-sm">
-                  {Math.floor(secondsRemaining / 60)}:{String(secondsRemaining % 60).padStart(2, "0")}
-                </span>
-              </div>
-            )}
-            <TaskContent contentBlocks={readyTask.contentBlocks} prompt={readyTask.prompt} />
-            <div className="mt-5 space-y-3">
+            <div className={role === "student" ? "student-live-question" : ""}>
+              <TaskContent contentBlocks={readyTask.contentBlocks} prompt={readyTask.prompt} />
+            </div>
+            <div className={`mt-5 space-y-3 ${
+              role === "student" ? "student-live-answers" : ""
+            }`}>
               {readyTask.type === "drag_drop" && role === "student" ? (
                 <fieldset className="space-y-3">
                   <legend className="text-sm font-medium text-foreground">
@@ -382,7 +409,7 @@ function LiveLessonDetailContent({
                                 : selected.filter((id) => id !== option.id),
                             )
                           }
-                          className={`rounded-xl border px-4 py-3 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                          className={`student-live-option min-h-14 w-full rounded-2xl border px-4 py-3 text-left text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                             position !== -1
                               ? "bg-violet-100 text-violet-800 shadow-violet-200"
                               : "bg-white text-slate-700 shadow-slate-200/70 hover:bg-sky-50"
@@ -410,7 +437,7 @@ function LiveLessonDetailContent({
                   )}
                 </fieldset>
               ) : readyTask.type !== "short_answer" ? (
-                readyTask.options.map((option) => {
+                readyTask.options.map((option, index) => {
                   const selected = Array.isArray(answer)
                     ? answer.includes(option.id)
                     : answer === option.id;
@@ -418,10 +445,10 @@ function LiveLessonDetailContent({
                   return (
                     <label
                       key={option.id}
-                      className={`flex items-center gap-3 rounded-xl border p-3 ${
+                      className={`student-live-option flex min-h-16 items-center gap-3 rounded-2xl border-2 p-3 font-bold ${
                         selected
-                          ? "bg-violet-100 text-violet-900 shadow-violet-200"
-                          : "bg-white shadow-slate-200/70 hover:bg-sky-50"
+                          ? "is-selected"
+                          : ""
                       }`}
                     >
                       <input
@@ -442,8 +469,11 @@ function LiveLessonDetailContent({
                               : [...selectedIds, option.id];
                           })
                         }
-                        className="h-4 w-4 accent-brand-600"
+                        className="student-live-choice-control"
                       />
+                      <span className="student-live-choice-letter" aria-hidden="true">
+                        {String.fromCharCode(65 + index)}
+                      </span>
                       {option.text}
                     </label>
                   );
@@ -464,6 +494,7 @@ function LiveLessonDetailContent({
               <form className="mt-5" onSubmit={submitAnswer}>
                 <Button
                   type="submit"
+                  className={role === "student" ? "student-action-button" : ""}
                   disabled={
                     saving ||
                     (Array.isArray(answer) ? !answer.length : !answer.trim())
@@ -475,7 +506,7 @@ function LiveLessonDetailContent({
             )}
           </div>
         ) : role === "student" && !lesson.hasStarted ? (
-          <div className="bg-gradient-to-br from-violet-50 to-sky-50 p-7 text-center">
+          <div className="student-live-waiting bg-gradient-to-br from-violet-50 to-sky-50 p-7 text-center">
             <h2 className="font-bold text-violet-800">Müəllim dərsi başladana qədər sual görünməyəcək.</h2>
             <p className="mt-2 text-sm text-muted">
               Sual başlayanda bu səhifə avtomatik yenilənəcək.
@@ -547,10 +578,15 @@ function LiveLessonDetailContent({
         )}
 
         {role === "student" && lesson.hasStarted && (
-        <Card className="mt-5">
-          <h2 className="text-lg font-bold">
-            {isClosed ? "Nəticələr" : "Cavablar"}
-          </h2>
+        <Card className="student-content-card student-live-results mt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold">
+              {isClosed ? "Nəticələr" : "Cavablar"}
+            </h2>
+            <span className="student-live-count rounded-full px-3 py-1 text-xs font-extrabold">
+              {submissions.length} cavab
+            </span>
+          </div>
           {!ownSubmission ? (
             <p className="mt-3 text-sm text-muted">
               Cavabını təsdiqləyəndən sonra iştirakçıların cavab siyahısı görünəcək.
@@ -560,12 +596,12 @@ function LiveLessonDetailContent({
               {submissions.map((submission, index) => (
                 <li
                   key={submission._id}
-                  className={`flex items-center gap-3 rounded-xl border p-3 ${
+                  className={`student-live-result-row flex items-center gap-3 rounded-2xl p-3 ${
                     isClosed
                       ? submission.isCorrect
-                        ? "border-success-100 bg-success-50"
-                        : "border-danger-100 bg-danger-50"
-                      : "border-border bg-surface"
+                        ? "is-correct"
+                        : "is-incorrect"
+                      : ""
                   }`}
                 >
                   <span className="font-bold">{index + 1}.</span>

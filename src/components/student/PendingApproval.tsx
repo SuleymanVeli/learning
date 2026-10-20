@@ -66,8 +66,8 @@ export function PendingApproval() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-lg p-8 text-center sm:p-10">
+    <main className="student-theme-shell student-theme flex min-h-screen items-center justify-center px-4 py-12">
+      <Card className="student-content-card w-full max-w-lg p-8 text-center sm:p-10">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-warning-50 text-2xl text-warning-600">
           …
         </div>
@@ -94,7 +94,7 @@ export function PendingApproval() {
           <Button variant="outline" onClick={() => void checkApproval()}>
             Vəziyyəti yoxla
           </Button>
-          <Button variant="secondary" onClick={() => void logout()}>
+          <Button variant="secondary" className="student-action-button" onClick={() => void logout()}>
             Çıxış
           </Button>
         </div>

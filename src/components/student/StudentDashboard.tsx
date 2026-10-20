@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { DashboardShell } from "@/src/components/app/DashboardShell";
 import { RoleGate } from "@/src/components/app/RoleGate";
-import { Card } from "@/src/components/ui/Card";
 import { subscribeToLessonSignal } from "@/src/lib/firebase";
 import { requestJson } from "@/src/lib/client-api";
 
@@ -125,10 +125,14 @@ function StudentContent({ name, avatar }: { name: string; avatar: string }) {
 
   return (
     <DashboardShell name={name} role="student" avatar={avatar}>
-      <div className="mb-6 rounded-3xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 py-5 text-white shadow-lg shadow-purple-200 sm:px-7">
-        <h1 className="text-2xl font-black sm:text-3xl">
-          Salam, {name.split(" ")[0]}!
-        </h1>
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-extrabold text-violet-700">🌈 Öyrənmək əyləncəlidir!</p>
+          <h1 className="mt-1 text-3xl font-black sm:text-4xl">
+            Salam, {name.split(" ")[0]}!
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Bu gün yeni bir şey öyrənməyə hazırsan?</p>
+        </div>
       </div>
 
       {error && (
@@ -139,81 +143,59 @@ function StudentContent({ name, avatar }: { name: string; avatar: string }) {
           {error}
         </p>
       )}
-      {data.live ? (
-        <section aria-labelledby="live-title">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-rose-100 px-4 py-2 shadow-sm">
-            <span className={`relative flex h-3 w-3 ${data.live.hasStarted ? "" : "hidden"}`}>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger-500 opacity-60" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-danger-500" />
-            </span>
-            <p className="text-sm font-bold uppercase tracking-wide text-danger-600">
-              {data.live.hasStarted ? "Canlı dərs" : "Dərs gözləmədə"}
-            </p>
-          </div>
-          <Card className="overflow-hidden border-0 bg-white p-0 shadow-xl shadow-blue-100/70">
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-sky-100 via-cyan-50 to-violet-100 px-5 py-4 sm:px-7">
-              <div>
-                <p className="text-sm text-brand-700">{data.live.groupName ?? "Dərs otağı"}</p>
-                <h2 id="live-title" className="mt-1 text-xl font-bold">
-                  {data.live.title}
-                </h2>
-                {data.live.hasStarted && (
-                  <p className="mt-1 text-sm font-semibold text-violet-700">
-                    Sual {data.live.taskIndex + 1}/{data.live.taskCount}
-                  </p>
-                )}
-              </div>
-              <a
-                href={`/student/live-lessons/${data.live.id}`}
-                className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
-              >
-                Dərsə keç
-              </a>
-              <div
-                className={`rounded-2xl px-4 py-2 text-center ${
-                  !data.live.hasStarted
-                    ? "bg-surface-muted text-muted"
-                    : remaining > 0
-                      ? "bg-surface text-brand-700"
-                      : "bg-danger-50 text-danger-600"
-                }`}
-                aria-live="polite"
-              >
-                <span className="block text-xs font-medium">
-                  {!data.live.hasStarted
-                    ? "Müəllim dərsi başladacaq"
-                    : "Qalan vaxt"}
-                </span>
-                {data.live.hasStarted && <span className="font-mono text-xl font-bold">
-                  {Math.floor(remaining / 60)
-                    .toString()
-                    .padStart(2, "0")}
-                  :{(remaining % 60).toString().padStart(2, "0")}
-                </span>}
-              </div>
-            </div>
+      <section aria-label="Öyrənmə göstəriciləri" className="mb-8 grid gap-4 sm:grid-cols-3">
+        <div className="student-stat-card student-stat-stars">
+          <span className="student-stat-icon">📚</span>
+          <span><span className="block text-2xl font-black">{data.assignments.length}</span><span className="text-sm font-bold">Ev tapşırığı</span></span>
+        </div>
+        <div className="student-stat-card student-stat-streak">
+          <span className="student-stat-icon">🎮</span>
+          <span><span className="block text-2xl font-black">{data.live ? "1" : "0"}</span><span className="text-sm font-bold">Canlı dərs</span></span>
+        </div>
+        <div className="student-stat-card student-stat-badges">
+          <span className="student-stat-icon">⭐</span>
+          <span><span className="block text-lg font-black">{data.live ? (data.live.hasStarted ? "Aktiv" : "Gözləyir") : "Hazır"}</span><span className="text-sm font-bold">Dərs vəziyyəti</span></span>
+        </div>
+      </section>
 
-          </Card>
-        </section>
-      ) : (
-        <Card className="mb-6 border-0 bg-gradient-to-r from-sky-50 to-violet-50 px-5 py-5 shadow-lg shadow-blue-100">
-          <h2 className="font-bold">Hazırda canlı dərs yoxdur</h2>
-        </Card>
-      )}
-
-      <section>
-        <Card className="flex flex-wrap items-center justify-between gap-4 border-0 shadow-lg shadow-violet-100">
+      <section aria-label="Öyrənmə bölmələri">
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold">Ev tapşırıqları</h2>
-            <p className="mt-1 text-sm text-muted">{data.assignments.length} tapşırıq</p>
+            <p className="text-sm font-extrabold text-violet-700">Sənin üçün</p>
+            <h2 className="text-2xl font-black">Haradan başlayaq?</h2>
           </div>
-          <a
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Link
             href="/student/assignments"
-            className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+            className="student-play-card student-card-math flex min-h-64 flex-col items-center justify-center p-6 text-center"
           >
-            Tapşırıqlara keç
-          </a>
-        </Card>
+            <span className="student-category-illustration" aria-hidden="true">📚</span>
+            <h3 className="mt-3 text-xl font-black">Ev tapşırıqları</h3>
+            <p className="student-card-subtitle mt-1 text-sm">{data.assignments.length} tapşırıq səni gözləyir</p>
+            <span className="student-card-link mt-4">Tapşırıqlara başla →</span>
+          </Link>
+          <Link
+            href={data.live ? `/student/live-lessons/${data.live.id}` : "/student/live-lessons"}
+            className="student-play-card student-card-puzzle flex min-h-64 flex-col items-center justify-center p-6 text-center"
+          >
+            <span className="student-category-illustration" aria-hidden="true">🎮</span>
+            <h3 className="mt-3 text-xl font-black">{data.live?.title ?? "Canlı dərslər"}</h3>
+            <p className="student-card-subtitle mt-1 text-sm">
+              {data.live
+                ? data.live.hasStarted
+                  ? `Sual ${data.live.taskIndex + 1} / ${data.live.taskCount} · indi qoşul`
+                  : "Müəllim dərsi başladana qədər sual göstərilmir."
+                : "Yeni dərs başlayanda burada görünəcək."}
+            </p>
+            {data.live?.hasStarted && (
+              <span className="mt-3 rounded-xl bg-white px-3 py-1 font-mono font-black text-amber-800 shadow-sm" aria-live="polite">
+                {Math.floor(remaining / 60).toString().padStart(2, "0")}:{(remaining % 60).toString().padStart(2, "0")}
+              </span>
+            )}
+            <span className="student-card-link mt-4">{data.live ? "Dərsə qoşul →" : "Dərslərə bax →"}</span>
+          </Link>
+        </div>
       </section>
     </DashboardShell>
   );
