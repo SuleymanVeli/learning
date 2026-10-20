@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/src/components/ui/Button";
@@ -69,7 +70,14 @@ export function JoinRegistration({ accessCode }: { accessCode: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <Card className="w-full max-w-lg p-6 sm:p-9">
-        <Link href="/login" className="text-sm font-bold text-brand-700">
+        <Link href="/login" className="inline-flex items-center gap-2 text-sm font-bold text-brand-700">
+          <Image
+            src="/android-chrome-192x192.png"
+            alt=""
+            width={32}
+            height={32}
+            className="rounded-lg"
+          />
           BeMath
         </Link>
         {loading ? (

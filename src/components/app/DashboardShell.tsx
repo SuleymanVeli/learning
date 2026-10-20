@@ -49,9 +49,13 @@ export function DashboardShell({
       <div className="student-theme-shell min-h-screen">
         <aside className="student-sidebar fixed inset-y-0 left-0 z-30 hidden w-[270px] flex-col px-5 py-7 md:flex">
           <Link href="/student" className="student-brand mb-10 flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xl font-black text-white shadow-lg shadow-violet-200">
-              B
-            </span>
+            <Image
+              src="/android-chrome-192x192.png"
+              alt=""
+              width={48}
+              height={48}
+              className="rounded-2xl shadow-lg shadow-violet-200"
+            />
             <span>
               <span className="block text-xl font-extrabold text-slate-800">BeMath</span>
               <span className="block text-xs font-bold text-slate-500">Öyrənmək əyləncəlidir!</span>
@@ -89,9 +93,13 @@ export function DashboardShell({
           <header className="student-topbar sticky top-0 z-20 px-4 py-3 sm:px-7 md:px-10">
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
               <Link href="/student" className="student-brand flex items-center gap-2 md:hidden">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white shadow-md">
-                  B
-                </span>
+                <Image
+                  src="/android-chrome-192x192.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="rounded-xl shadow-md"
+                />
                 <span className="font-extrabold text-slate-800">BeMath</span>
               </Link>
               <nav aria-label="Şagird menyusu" className="student-mobile-nav flex items-center gap-1 overflow-x-auto md:hidden">
@@ -147,9 +155,13 @@ export function DashboardShell({
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-lg font-black text-white">
-              B
-            </span>
+            <Image
+              src="/android-chrome-192x192.png"
+              alt=""
+              width={40}
+              height={40}
+              className="rounded-xl"
+            />
             <span>
               <span className="block font-bold tracking-tight text-foreground">
                 BeMath

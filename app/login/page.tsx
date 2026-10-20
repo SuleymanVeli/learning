@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/src/components/ui/Button";
@@ -89,9 +90,13 @@ export default function LoginPage() {
       <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-surface shadow-xl shadow-slate-200/60 md:grid-cols-2">
         <section className="hidden flex-col justify-between bg-brand-600 p-10 text-white md:flex">
           <div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-xl font-black">
-              B
-            </div>
+            <Image
+              src="/android-chrome-192x192.png"
+              alt=""
+              width={48}
+              height={48}
+              className="rounded-2xl"
+            />
             <p className="mt-16 text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">
               Öyrən. Sına. Kəşf et.
             </p>
@@ -110,8 +115,15 @@ export default function LoginPage() {
         <section className="p-6 sm:p-10">
           <Link
             href="/"
-            className="text-sm font-bold tracking-tight text-brand-700 md:hidden"
+            className="inline-flex items-center gap-2 text-sm font-bold tracking-tight text-brand-700 md:hidden"
           >
+            <Image
+              src="/android-chrome-192x192.png"
+              alt=""
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
             BeMath
           </Link>
           <div className="mt-8 md:mt-12">
