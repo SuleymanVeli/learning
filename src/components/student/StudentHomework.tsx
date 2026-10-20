@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { DashboardShell } from "@/src/components/app/DashboardShell";
 import { RoleGate } from "@/src/components/app/RoleGate";
 import { Button } from "@/src/components/ui/Button";
@@ -75,6 +74,131 @@ const assignmentThemes = [
   { className: "student-card-puzzle", illustration: "🧩" },
   { className: "student-card-art", illustration: "🎨" },
 ] as const;
+
+function formatSubmissionAnswer(answer: unknown, task: HomeworkTask): string {
+  const values = Array.isArray(answer) ? answer : [answer];
+  const formatted = values.map((value) => {
+    if (typeof value !== "string") return JSON.stringify(value);
+    return task.options.find((option) => option.id === value)?.text ?? value;
+  });
+  return formatted.filter(Boolean).join(", ") || "—";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function taskContentForPrint(task: HomeworkTask): string {
+  if (!task.contentBlocks.length) {
+    return `<p>${escapeHtml(task.prompt)}</p>`;
+  }
+
+  return task.contentBlocks
+    .map((block) => {
+      if (block.type === "text") {
+        const text = new DOMParser().parseFromString(block.text, "text/html").body.textContent ?? "";
+        return `<p>${escapeHtml(text)}</p>`;
+      }
+      const url = new URL(block.url, window.location.origin);
+      if (!["http:", "https:"].includes(url.protocol)) return "";
+      return `<img src="${escapeHtml(url.href)}" alt="${escapeHtml(block.alt)}" style="width:${Math.min(100, Math.max(10, block.width))}%;max-width:${Math.min(4096, block.maxWidthPx ?? 800)}px">`;
+    })
+    .join("");
+}
+
+function openHomeworkPdf(details: HomeworkDetails, studentName: string, draft: {
+  taskId: string;
+  answer: string | string[];
+} | null): boolean {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return false;
+
+  const tasksHtml = details.tasks
+    .map((task, index) => {
+      const submittedAnswer = task.submission
+        ? formatSubmissionAnswer(task.submission.answer, task)
+        : draft?.taskId === task._id
+          ? formatSubmissionAnswer(draft.answer, task)
+          : "Cavab verilməyib";
+      const optionsHtml = task.options.length
+        ? `<ol type="A">${task.options.map((option) => `<li>${escapeHtml(option.text)}</li>`).join("")}</ol>`
+        : "";
+
+      return `
+        <section class="question">
+          <h2>${index + 1}. ${escapeHtml(task.title)}</h2>
+          <div class="content">${taskContentForPrint(task)}</div>
+          ${optionsHtml}
+          <p class="answer"><strong>Şagirdin cavabı:</strong> ${escapeHtml(submittedAnswer)}</p>
+          ${task.submission
+            ? `<p class="result ${task.submission.isCorrect ? "correct" : "incorrect"}">${task.submission.isCorrect ? "Düzgün cavab" : "Səhv cavab"}</p>`
+            : ""}
+        </section>`;
+    })
+    .join("");
+
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+    <html lang="az">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>${escapeHtml(details.assignment.title)}</title>
+        <style>
+          @page { size: A4; margin: 18mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #273449; font: 14px/1.6 Arial, sans-serif; }
+          header { margin-bottom: 24px; border-bottom: 2px solid #e8e3f1; padding-bottom: 14px; }
+          h1 { margin: 0; color: #4c3b70; font-size: 24px; }
+          header p { margin: 4px 0 0; color: #667085; }
+          .question { break-inside: avoid; margin: 0 0 22px; border-bottom: 1px solid #e5e7eb; padding: 0 0 18px; }
+          h2 { margin: 0 0 10px; font-size: 18px; }
+          .content p { white-space: pre-wrap; }
+          .content img { display: block; height: auto; margin: 12px auto; }
+          ol { padding-left: 24px; }
+          li { padding: 2px 0; }
+          .answer { margin: 12px 0 0; border-radius: 8px; background: #f3f6f8; padding: 8px 12px; }
+          .result { font-weight: 700; }
+          .correct { color: #397649; }
+          .incorrect { color: #925353; }
+          @media screen { body { max-width: 800px; margin: 32px auto; padding: 24px; } }
+        </style>
+      </head>
+      <body>
+        <header>
+          <h1>${escapeHtml(details.assignment.title)}</h1>
+          <p>Şagird: ${escapeHtml(studentName)}</p>
+          <p>Tarix: ${new Date().toLocaleDateString("az-AZ")}</p>
+        </header>
+        ${tasksHtml}
+      </body>
+    </html>`);
+  printWindow.document.close();
+
+  const images = Array.from(printWindow.document.images);
+  void Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve();
+            return;
+          }
+          image.addEventListener("load", () => resolve(), { once: true });
+          image.addEventListener("error", () => resolve(), { once: true });
+        }),
+    ),
+  ).then(() => {
+    printWindow.focus();
+    printWindow.print();
+  });
+  return true;
+}
 
 export function StudentHomework() {
   return (
@@ -233,6 +357,31 @@ function StudentHomeworkContent({
           <h1 className="min-w-0 truncate text-xl font-black sm:text-2xl">
             {details?.assignment.title ?? "Ev tapşırığı"}
           </h1>
+          {/* {details && !detailsLoading && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="student-flat-button ml-auto shrink-0"
+              onClick={() => {
+                setError("");
+                const opened = openHomeworkPdf(
+                  details,
+                  name,
+                  task
+                    ? { taskId: task._id, answer }
+                    : null,
+                );
+                if (!opened) {
+                  setError("PDF yaratmaq üçün brauzerdə yeni pəncərələrə icazə verin.");
+                }
+              }}
+            >
+              <span aria-hidden="true">↓</span>
+              <span className="hidden sm:inline">PDF yüklə</span>
+              <span className="sm:hidden">PDF</span>
+            </Button>
+          )} */}
         </div>
       )}
       {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
@@ -329,12 +478,15 @@ function StudentHomeworkContent({
           </div>
           <div className="student-homework-answer">
             {task.submission ? (
-              <div className={`mt-5 rounded-xl p-4 font-semibold ${
-                task.submission.isCorrect
-                  ? "bg-success-50 text-success-600"
-                  : "bg-danger-50 text-danger-600"
+              <div className={`student-homework-result ${
+                task.submission.isCorrect ? "is-correct" : "is-incorrect"
               }`}>
-                {task.submission.isCorrect ? "Cavab düzgündür." : "Cavab yoxlanıldı."}
+                <p className="font-extrabold">
+                  {task.submission.isCorrect ? "Cavab düzgündür." : "Səhv cavabdır."}
+                </p>
+                <p className="mt-1 text-sm">
+                  Seçdiyin cavab: {formatSubmissionAnswer(task.submission.answer, task)}
+                </p>
               </div>
             ) : details.assignment.deadlinePassed ? (
               <p className="mt-5 rounded-xl bg-surface-muted p-4 text-sm text-muted">

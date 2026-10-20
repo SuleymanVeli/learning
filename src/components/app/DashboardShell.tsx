@@ -53,7 +53,7 @@ export function DashboardShell({
               B
             </span>
             <span>
-              <span className="block text-xl font-extrabold text-slate-800">Bebras</span>
+              <span className="block text-xl font-extrabold text-slate-800">BeMath</span>
               <span className="block text-xs font-bold text-slate-500">Öyrənmək əyləncəlidir!</span>
             </span>
           </Link>
@@ -92,7 +92,7 @@ export function DashboardShell({
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white shadow-md">
                   B
                 </span>
-                <span className="font-extrabold text-slate-800">Bebras</span>
+                <span className="font-extrabold text-slate-800">BeMath</span>
               </Link>
               <nav aria-label="Şagird menyusu" className="student-mobile-nav flex items-center gap-1 overflow-x-auto md:hidden">
                 {navigation.map((item) => {
@@ -152,7 +152,7 @@ export function DashboardShell({
             </span>
             <span>
               <span className="block font-bold tracking-tight text-foreground">
-                Bebras
+                BeMath
               </span>
               <span className="block text-xs text-muted">
                 {role === "admin" ? "Müəllim paneli" : "Şagird paneli"}

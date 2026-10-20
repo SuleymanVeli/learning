@@ -70,7 +70,7 @@ export function JoinRegistration({ accessCode }: { accessCode: string }) {
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <Card className="w-full max-w-lg p-6 sm:p-9">
         <Link href="/login" className="text-sm font-bold text-brand-700">
-          BEBRAS PLATFORM
+          BeMath
         </Link>
         {loading ? (
           <p className="mt-10 text-sm text-muted">Dəvət linki yoxlanılır...</p>

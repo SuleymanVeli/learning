@@ -1,31 +1,17 @@
-# Bebras Platform
+# BeMath
 
-Bebras Platform is a learning platform for administrators and students, built
+BeMath is a learning platform for administrators and students, built
 with Next.js, TypeScript, Tailwind CSS, MongoDB, and Firebase Realtime Database.
 
 ## Getting started
 
 1. Install dependencies with `npm install`.
 2. Copy `.env.example` to `.env.local` and set the MongoDB URI, session secret,
-   one-time admin bootstrap token, and `BLOB_READ_WRITE_TOKEN`.
+   and `BLOB_READ_WRITE_TOKEN`.
 3. Start the development server with `npm run dev`.
-4. Create the first admin by sending a `POST` request to
-   `/api/auth/bootstrap-admin` with the bootstrap token, name, email, and
-   password. The endpoint is disabled after an admin account exists.
 
-Example request:
-
-```json
-{
-  "token": "<ADMIN_BOOTSTRAP_TOKEN>",
-  "name": "Platform Admin",
-  "email": "admin@example.com",
-  "password": "<secure-password>"
-}
-```
-
-Use a unique random `SESSION_SECRET` of at least 32 characters and an
-`ADMIN_BOOTSTRAP_TOKEN` of at least 24 characters. Keep `.env.local` private.
+Use a unique random `SESSION_SECRET` of at least 32 characters. Keep
+`.env.local` private.
 For Firebase realtime signals, set the `NEXT_PUBLIC_FIREBASE_*` client settings
 and `FIREBASE_SERVICE_ACCOUNT_JSON` to the Firebase service account JSON. Never
 expose or commit the service account.
@@ -62,7 +48,6 @@ same-site session cookie.
 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
-| POST | `/api/auth/bootstrap-admin` | Bootstrap token | Create the first admin |
 | POST | `/api/auth/login` | Public | Sign in with email and password |
 | POST | `/api/auth/logout` | Public | Clear the session cookie |
 | GET | `/api/auth/me` | Signed in | Get the current account |
@@ -85,7 +70,7 @@ same-site session cookie.
 | POST | `/api/live-lessons/:lessonId/submissions` | Student | Submit one answer to the active live question |
 | GET, POST | `/api/assignments/:assignmentId` | Student | Load homework and submit an answer |
 
-The app screens are `/login`, `/setup`, `/admin`, `/admin/quizzes`,
+The app screens are `/login`, `/admin`, `/admin/quizzes`,
 `/admin/tasks`, `/admin/groups`,
 `/admin/users`, `/join/:accessCode`, `/student/pending`, and `/student`.
 Group invite links are disabled by default. Admins can enable or disable each

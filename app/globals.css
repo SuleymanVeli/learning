@@ -604,6 +604,21 @@ body {
   padding: 16px;
 }
 
+.student-homework-result {
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.student-homework-result.is-correct {
+  background: #edf7ef;
+  color: #397649;
+}
+
+.student-homework-result.is-incorrect {
+  background: #fbf1f1;
+  color: #925353;
+}
+
 .student-homework-answer .student-answer-option {
   border-color: #e0e9f1;
   background: #f5f9fc;

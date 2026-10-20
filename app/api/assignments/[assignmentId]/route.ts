@@ -229,3 +229,49 @@ export async function POST(
     throw error;
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ assignmentId: string }> },
+) {
+  const admin = await requireUser("admin");
+  if (admin instanceof Response) return admin;
+
+  const { assignmentId } = await params;
+  if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
+    return jsonError("Ev tapşırığı tapılmadı.", 404);
+  }
+
+  await connectToDatabase();
+  const session = await mongoose.startSession();
+  let deleted = false;
+  try {
+    await session.withTransaction(async () => {
+      const assignment = await Assignment.findOne({
+        _id: assignmentId,
+        createdBy: admin._id,
+      })
+        .select("_id")
+        .session(session);
+      if (!assignment) return;
+
+      await HomeworkSubmission.deleteMany({
+        assignmentId: assignment._id,
+      }).session(session);
+      const result = await Assignment.deleteOne({
+        _id: assignment._id,
+        createdBy: admin._id,
+      }).session(session);
+      if (result.deletedCount !== 1) {
+        throw new Error("Ev tapşırığını silmək mümkün olmadı.");
+      }
+      deleted = true;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (!deleted) return jsonError("Ev tapşırığı tapılmadı.", 404);
+
+  return Response.json({ success: true });
+}

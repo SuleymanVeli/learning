@@ -96,7 +96,7 @@ export default function LoginPage() {
               Öyrən. Sına. Kəşf et.
             </p>
             <h1 className="mt-4 max-w-sm text-4xl font-bold leading-tight">
-              Bebras dünyasına xoş gəlmisən
+              BeMath dünyasına xoş gəlmisən
             </h1>
             <p className="mt-5 max-w-sm leading-7 text-blue-100">
               Canlı dərslərə qoşul, maraqlı tapşırıqları həll et və öz
@@ -112,7 +112,7 @@ export default function LoginPage() {
             href="/"
             className="text-sm font-bold tracking-tight text-brand-700 md:hidden"
           >
-            BEBRAS
+            BeMath
           </Link>
           <div className="mt-8 md:mt-12">
             <p className="text-sm font-semibold text-brand-700">
@@ -154,15 +154,6 @@ export default function LoginPage() {
               {isSubmitting ? "Yoxlanılır..." : "Daxil ol"}
             </Button>
           </form>
-          <p className="mt-6 text-center text-sm text-muted">
-            İlk admin hesabıdır?{" "}
-            <Link
-              href="/setup"
-              className="font-semibold text-brand-700 hover:text-brand-600"
-            >
-              Quraşdırmanı başlat
-            </Link>
-          </p>
         </section>
       </div>
     </main>

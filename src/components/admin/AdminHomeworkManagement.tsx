@@ -8,6 +8,7 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Select } from "@/src/components/ui/Select";
+import { Modal } from "@/src/components/ui/Modal";
 import { requestJson } from "@/src/lib/client-api";
 
 interface GroupSummary {
@@ -68,6 +69,7 @@ function AdminHomeworkContent({ name }: { name: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [deleting, setDeleting] = useState<AssignmentSummary | null>(null);
 
   const load = useCallback(async () => {
     setData(await fetchManagementData());
@@ -113,6 +115,32 @@ function AdminHomeworkContent({ name }: { name: string }) {
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Ev tapşırığını dərc etmək olmadı.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteAssignment() {
+    if (!deleting) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await requestJson(`/api/assignments/${deleting._id}`, {
+        method: "DELETE",
+      });
+      setData((current) => ({
+        ...current,
+        assignments: current.assignments.filter(
+          (assignment) => assignment._id !== deleting._id,
+        ),
+      }));
+      setNotice(`“${deleting.title}” və şagird cavabları həmişəlik silindi.`);
+      setDeleting(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Ev tapşırığını silmək olmadı.",
+      );
     } finally {
       setSaving(false);
     }
@@ -216,12 +244,25 @@ function AdminHomeworkContent({ name }: { name: string }) {
                     ? ` · Son tarix ${new Date(assignment.dueAt).toLocaleString("az-AZ")}`
                     : " · Son tarix təyin edilməyib"}
                 </p>
-                <Link
-                  href={`/admin/assignments/${assignment._id}`}
-                  className="mt-4 inline-flex rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white"
-                >
-                  Nəticələrə bax
-                </Link>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/admin/assignments/${assignment._id}`}
+                    className="inline-flex rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white"
+                  >
+                    Nəticələrə bax
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      setError("");
+                      setDeleting(assignment);
+                    }}
+                  >
+                    Sil
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>
@@ -229,6 +270,39 @@ function AdminHomeworkContent({ name }: { name: string }) {
           <Card className="py-10 text-center text-muted">Hələ ev tapşırığı dərc edilməyib.</Card>
         )}
       </section>
+      <Modal
+        open={deleting !== null}
+        title="Ev tapşırığını həmişəlik sil"
+        description="Bu əməliyyat geri qaytarıla bilməz. Şagirdlərin bütün cavabları və nəticələri də silinəcək."
+        onClose={() => {
+          if (!saving) setDeleting(null);
+        }}
+      >
+        {deleting && (
+          <div className="space-y-4">
+            <p className="font-semibold">{deleting.title}</p>
+            {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => setDeleting(null)}
+              >
+                Ləğv et
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={saving}
+                onClick={() => void deleteAssignment()}
+              >
+                {saving ? "Silinir..." : "Həmişəlik sil"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </DashboardShell>
   );
 }

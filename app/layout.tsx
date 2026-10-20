@@ -20,8 +20,8 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Bebras Platform",
-  description: "Bebras Platform - canlı dərslər və interaktiv tapşırıqlar.",
+  title: "BeMath",
+  description: "BeMath - canlı dərslər və interaktiv tapşırıqlar.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
