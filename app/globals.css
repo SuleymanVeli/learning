@@ -159,11 +159,32 @@ body {
   outline-offset: 3px;
 }
 
+@keyframes homework-new-glow {
+  0%,
+  100% {
+    box-shadow: 0 12px 28px rgb(217 70 239 / 16%);
+  }
+
+  50% {
+    box-shadow:
+      0 18px 38px rgb(217 70 239 / 24%),
+      0 0 0 4px rgb(216 180 254 / 38%);
+  }
+}
+
+.homework-new-card {
+  animation: homework-new-glow 2.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .student-theme *,
   .student-theme-header * {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .homework-new-card {
+    animation: none;
   }
 }
 

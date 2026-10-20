@@ -16,6 +16,8 @@ interface AssignmentSummary {
   title: string;
   dueAt?: string;
   groupId: { name: string } | string;
+  taskCount: number;
+  submittedCount: number;
 }
 
 interface HomeworkTask {
@@ -40,6 +42,37 @@ interface HomeworkDetails {
     deadlinePassed: boolean;
   };
   tasks: HomeworkTask[];
+}
+
+function assignmentState(assignment: AssignmentSummary) {
+  if (assignment.taskCount > 0 && assignment.submittedCount >= assignment.taskCount) {
+    return {
+      label: "Bitmiş",
+      icon: "🏆",
+      card:
+        "bg-gradient-to-br from-emerald-50 via-white to-green-100 shadow-emerald-200/70",
+      badge: "bg-emerald-100 text-emerald-800",
+      progress: "bg-emerald-500",
+    };
+  }
+  if (assignment.submittedCount > 0) {
+    return {
+      label: "Yarımçıq",
+      icon: "🧩",
+      card:
+        "bg-gradient-to-br from-amber-50 via-white to-orange-100 shadow-amber-200/70",
+      badge: "bg-amber-100 text-amber-800",
+      progress: "bg-amber-500",
+    };
+  }
+  return {
+    label: "Yeni",
+    icon: "✨",
+    card:
+      "homework-new-card bg-gradient-to-br from-violet-100 via-white to-fuchsia-100 shadow-fuchsia-200/80",
+    badge: "bg-violet-100 text-violet-800",
+    progress: "bg-violet-500",
+  };
 }
 
 export function StudentHomework() {
@@ -79,7 +112,6 @@ function StudentHomeworkContent({
       .then(({ assignments: rows }) => {
         if (cancelled) return;
         setAssignments(rows);
-        if (rows[0]) setSelectedId(rows[0]._id);
       })
       .catch((cause: unknown) => {
         if (!cancelled)
@@ -153,6 +185,19 @@ function StudentHomeworkContent({
             }
           : current,
       );
+      setAssignments((current) =>
+        current.map((assignment) =>
+          assignment._id === details.assignment.id
+            ? {
+                ...assignment,
+                submittedCount: Math.min(
+                  assignment.taskCount,
+                  assignment.submittedCount + 1,
+                ),
+              }
+            : assignment,
+        ),
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Cavabı göndərmək olmadı.");
     } finally {
@@ -162,55 +207,121 @@ function StudentHomeworkContent({
 
   return (
     <DashboardShell name={name} role="student" avatar={avatar}>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-wide text-violet-600">📚 Öyrənmə vaxtıdır</p>
-          <h1 className="mt-1 text-3xl font-black sm:text-4xl">Ev tapşırıqları</h1>
-          <p className="mt-2 text-muted">
-            Tablar arasında sərbəst keçib hər sualı ayrıca cavablandıra bilərsən.
-          </p>
+      {!selectedId ? (
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide text-violet-600">📚 Tapşırıq seç</p>
+            <h1 className="mt-1 text-3xl font-black sm:text-4xl">Ev tapşırıqları</h1>
+          </div>
+          <span className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-violet-700 shadow-lg shadow-violet-100">
+            {assignments.length} tapşırıq
+          </span>
         </div>
-        <span className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-violet-700 shadow-lg shadow-violet-100">
-          ✨ {assignments.length} tapşırıq
-        </span>
-      </div>
-      {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
-      {assignments.length > 1 && (
-        <div className="mb-5 flex flex-wrap gap-2">
-          {assignments.map((assignment) => (
-            <Button
-              key={assignment._id}
-              size="sm"
-              variant={selectedId === assignment._id ? "primary" : "outline"}
-              onClick={() => {
-                setError("");
-                setDetails(null);
-                setSelectedTaskIndex(0);
-                setSelectedId(assignment._id);
-              }}
-            >
-              {assignment.title}
-            </Button>
-          ))}
+      ) : (
+        <div className="mb-5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mb-4 rounded-full bg-white shadow-md shadow-violet-100"
+            onClick={() => {
+              setSelectedId("");
+              setDetails(null);
+              setError("");
+            }}
+          >
+            ← Tapşırıqlar siyahısı
+          </Button>
+          <h1 className="text-2xl font-black sm:text-3xl">
+            {details?.assignment.title ?? "Ev tapşırığı"}
+          </h1>
         </div>
       )}
-      {!assignments.length && !loading ? (
-        <Card className="text-center text-muted">Hazırda ev tapşırığı yoxdur.</Card>
+      {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
+      {!selectedId ? (
+        loading ? (
+          <p className="py-12 text-center text-muted">Tapşırıqlar yüklənir...</p>
+        ) : assignments.length ? (
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {assignments.map((assignment) => {
+              const state = assignmentState(assignment);
+              const progress = assignment.taskCount
+                ? Math.min(100, (assignment.submittedCount / assignment.taskCount) * 100)
+                : 0;
+              return (
+                <button
+                  key={assignment._id}
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    setDetails(null);
+                    setSelectedTaskIndex(0);
+                    setSelectedId(assignment._id);
+                  }}
+                  className={`group relative flex min-h-64 w-full flex-col overflow-hidden rounded-[2rem] p-5 text-left shadow-xl transition duration-200 hover:-translate-y-1 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 ${state.card}`}
+                >
+                  <span aria-hidden="true" className="absolute -right-7 -top-8 text-8xl opacity-20 transition group-hover:rotate-12 group-hover:scale-110">
+                    {state.icon}
+                  </span>
+                  <div className="relative flex w-full items-center justify-between gap-2">
+                    <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${state.badge}`}>
+                      {state.label}
+                    </span>
+                    {assignment.dueAt && (
+                      <span className="text-right text-xs font-semibold text-slate-500">
+                        Son tarix · {new Date(assignment.dueAt).toLocaleDateString("az-AZ")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative mt-8">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      {typeof assignment.groupId === "string" ? "Qrup" : assignment.groupId.name}
+                    </p>
+                    <h2 className="mt-1 line-clamp-2 text-xl font-black text-slate-800">
+                      {assignment.title}
+                    </h2>
+                  </div>
+                  <div className="relative mt-auto w-full pt-6">
+                    <div className="mb-2 flex justify-between text-xs font-bold text-slate-600">
+                      <span>{assignment.submittedCount} / {assignment.taskCount} sual</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-white/80 shadow-inner">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${state.progress}`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="mt-4 inline-flex items-center gap-1 text-sm font-extrabold text-violet-700">
+                      Aç və başla <span aria-hidden="true">→</span>
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="text-center text-muted">Hazırda ev tapşırığı yoxdur.</Card>
+        )
       ) : detailsLoading ? (
         <p className="py-12 text-center text-muted">Tapşırıq yüklənir...</p>
       ) : details && task ? (
         <Card className="overflow-hidden bg-gradient-to-br from-white to-violet-50/70 p-0 shadow-xl shadow-violet-100/70">
-          <div className="bg-gradient-to-r from-violet-100/80 via-fuchsia-50 to-sky-100/80 p-5">
-            <p className="text-sm font-bold text-violet-700">
-              {typeof selectedAssignment?.groupId === "object"
-                ? selectedAssignment.groupId.name
-                : "Qrup"}
-            </p>
-            <h2 className="mt-1 text-xl font-bold">{details.assignment.title}</h2>
-            {details.assignment.dueAt && (
-              <p className="mt-1 text-sm text-muted">
-                Son tarix: {new Date(details.assignment.dueAt).toLocaleString("az-AZ")}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-violet-100/80 via-fuchsia-50 to-sky-100/80 px-5 py-4">
+            <div>
+              <p className="text-sm font-bold text-violet-700">
+                {typeof selectedAssignment?.groupId === "string"
+                  ? "Qrup"
+                  : selectedAssignment?.groupId.name}
               </p>
+              <p className="mt-1 text-xs font-semibold text-slate-600">
+                {details.tasks.filter((item) => item.submission).length} / {details.tasks.length} sual tamamlanıb
+              </p>
+            </div>
+            {details.assignment.dueAt && (
+              <span className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm">
+                Son tarix · {new Date(details.assignment.dueAt).toLocaleDateString("az-AZ")}
+              </span>
             )}
           </div>
           <div role="tablist" aria-label="Ev tapşırığının sualları" className="flex gap-2 overflow-x-auto p-4">
@@ -371,6 +482,8 @@ function StudentHomeworkContent({
             </div>
           </div>
         </Card>
+      ) : selectedId && error ? (
+        <Card className="text-center text-muted">Tapşırığı açmaq mümkün olmadı. Yenidən cəhd et.</Card>
       ) : null}
       <Link href="/student" className="mt-5 inline-block text-sm font-semibold text-brand-700">
         ← Panelə qayıt

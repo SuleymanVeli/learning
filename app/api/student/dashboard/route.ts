@@ -6,6 +6,7 @@ import { Group } from "@/src/models/Group";
 import { LiveLesson } from "@/src/models/LiveLesson";
 import { Submission } from "@/src/models/Submission";
 import { Task } from "@/src/models/Task";
+import { HomeworkSubmission } from "@/src/models/HomeworkSubmission";
 import { sanitizeTaskContentBlocks } from "@/src/lib/task-content-html";
 
 export async function GET() {
@@ -21,9 +22,9 @@ export async function GET() {
     .lean();
   const groupIds = groups.map((group) => group._id);
 
-  const [assignments, lesson] = await Promise.all([
+  const [assignmentRows, lesson] = await Promise.all([
     Assignment.find({ groupId: { $in: groupIds }, publishedAt: { $ne: null } })
-      .select("_id title dueAt groupId")
+      .select("_id title dueAt groupId taskIds")
       .populate("groupId", "name")
       .sort({ createdAt: -1 })
       .lean(),
@@ -34,6 +35,29 @@ export async function GET() {
       .sort({ status: -1, startedAt: -1, createdAt: -1 })
       .lean(),
   ]);
+  const homeworkSubmissions = assignmentRows.length
+    ? await HomeworkSubmission.find({
+        assignmentId: { $in: assignmentRows.map((assignment) => assignment._id) },
+        studentId: student._id,
+      })
+        .select("assignmentId taskId")
+        .lean()
+    : [];
+  const submittedTasks = new Map<string, Set<string>>();
+  for (const submission of homeworkSubmissions) {
+    const assignmentId = submission.assignmentId.toString();
+    const taskIds = submittedTasks.get(assignmentId) ?? new Set<string>();
+    taskIds.add(submission.taskId.toString());
+    submittedTasks.set(assignmentId, taskIds);
+  }
+  const assignments = assignmentRows.map((assignment) => ({
+    _id: assignment._id,
+    title: assignment.title,
+    dueAt: assignment.dueAt,
+    groupId: assignment.groupId,
+    taskCount: assignment.taskIds.length,
+    submittedCount: submittedTasks.get(assignment._id.toString())?.size ?? 0,
+  }));
 
   let live = null;
   if (lesson) {
