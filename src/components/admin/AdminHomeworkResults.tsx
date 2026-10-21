@@ -14,6 +14,7 @@ import type { TaskContentBlock, TaskType } from "@/src/models/Task";
 interface HomeworkSubmissionRow {
   answer: unknown;
   isCorrect: boolean;
+  retryAllowed: boolean;
   submittedAt: string;
   studentId: {
     _id: string;
@@ -81,7 +82,9 @@ function AdminHomeworkResultsContent({
   const [data, setData] = useState<ResultData | null>(null);
   const [taskIndex, setTaskIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +104,51 @@ function AdminHomeworkResultsContent({
     };
   }, [assignmentId]);
 
+  async function resetIncorrectAnswer(taskId: string, studentId: string) {
+    const resetKey = `${taskId}-${studentId}`;
+    setResetting(resetKey);
+    setError("");
+    setNotice("");
+    try {
+      await requestJson(`/api/assignments/${assignmentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "reset-incorrect",
+          taskId,
+          studentId,
+        }),
+      });
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              tasks: current.tasks.map((item) =>
+                item._id === taskId
+                  ? {
+                      ...item,
+                      submissions: item.submissions.map((submission) =>
+                        submission.studentId?._id === studentId
+                          ? { ...submission, retryAllowed: true }
+                          : submission,
+                      ),
+                    }
+                  : item,
+              ),
+            }
+          : current,
+      );
+      setNotice("Şagird üçün bu sualı yenidən cavablandırmaq açıldı.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Yenidən cəhd açmaq mümkün olmadı.",
+      );
+    } finally {
+      setResetting("");
+    }
+  }
+
   const task = data?.tasks[taskIndex];
 
   return (
@@ -119,6 +167,7 @@ function AdminHomeworkResultsContent({
         )}
       </div>
       {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
+      {notice && <p role="status" className="mb-4 rounded-xl bg-success-50 p-3 text-sm text-success-600">{notice}</p>}
       {loading ? (
         <p className="py-12 text-center text-muted">Nəticələr yüklənir...</p>
       ) : data && task ? (
@@ -155,7 +204,11 @@ function AdminHomeworkResultsContent({
                   <Card
                     key={`${submission.studentId?._id ?? "unknown"}-${submission.submittedAt}`}
                     className={`flex items-center gap-4 p-4 ${
-                      submission.isCorrect ? "border-success-100 bg-success-50/50" : ""
+                      submission.isCorrect
+                        ? "border-success-100 bg-success-50/50"
+                        : submission.retryAllowed
+                          ? "border-warning-100 bg-warning-50/50"
+                          : ""
                     }`}
                   >
                     <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold ${
@@ -190,14 +243,40 @@ function AdminHomeworkResultsContent({
                     </div>
                     <div className="shrink-0 text-right">
                       <p className={`text-sm font-semibold ${
-                        submission.isCorrect ? "text-success-600" : "text-danger-600"
+                        submission.isCorrect
+                          ? "text-success-600"
+                          : submission.retryAllowed
+                            ? "text-warning-600"
+                            : "text-danger-600"
                       }`}>
-                        {submission.isCorrect ? "Düzgün" : "Səhv"}
+                        {submission.isCorrect
+                          ? "Düzgün"
+                          : submission.retryAllowed
+                            ? "Yenidən cəhd açıqdır"
+                            : "Səhv"}
                       </p>
                       <p className="mt-1 text-xs text-muted">
                         {new Date(submission.submittedAt).toLocaleString("az-AZ")}
                       </p>
                     </div>
+                    {!submission.isCorrect && !submission.retryAllowed && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={resetting === `${task._id}-${submission.studentId?._id}`}
+                        onClick={() => {
+                          const studentId = submission.studentId?._id;
+                          if (studentId) {
+                            void resetIncorrectAnswer(task._id, studentId);
+                          }
+                        }}
+                      >
+                        {resetting === `${task._id}-${submission.studentId?._id}`
+                          ? "Açılır..."
+                          : "Yenidən cəhd ver"}
+                      </Button>
+                    )}
                   </Card>
                 ))}
               </div>

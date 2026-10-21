@@ -39,6 +39,7 @@ export async function GET() {
     ? await HomeworkSubmission.find({
         assignmentId: { $in: assignmentRows.map((assignment) => assignment._id) },
         studentId: student._id,
+        retryAllowed: { $ne: true },
       })
         .select("assignmentId taskId")
         .lean()

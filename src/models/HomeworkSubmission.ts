@@ -6,6 +6,7 @@ export interface HomeworkSubmissionDocument extends Document {
   studentId: Types.ObjectId;
   answer: unknown;
   isCorrect: boolean;
+  retryAllowed: boolean;
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +23,7 @@ const homeworkSubmissionSchema = new Schema<HomeworkSubmissionDocument>(
     studentId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     answer: { type: Schema.Types.Mixed, required: true },
     isCorrect: { type: Boolean, required: true },
+    retryAllowed: { type: Boolean, required: true, default: false },
     submittedAt: { type: Date, required: true, default: Date.now },
   },
   { timestamps: true },

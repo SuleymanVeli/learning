@@ -55,7 +55,7 @@ export async function GET(
       assignmentId: assignment._id,
       ...(isAdmin ? {} : { studentId: user._id }),
     })
-      .select("taskId answer isCorrect submittedAt studentId")
+      .select("taskId answer isCorrect retryAllowed submittedAt studentId")
       .populate("studentId", "name email avatar")
       .lean(),
   ]);
@@ -106,18 +106,24 @@ export async function GET(
             .map((submission) => ({
               answer: submission.answer,
               isCorrect: submission.isCorrect,
+              retryAllowed: submission.retryAllowed,
               submittedAt: submission.submittedAt,
               studentId: submission.studentId,
             })),
           ...(isAdmin
             ? {}
             : {
+                retryAllowed: taskSubmissions.some(
+                  (submission) => submission.retryAllowed,
+                ),
                 submission: taskSubmissions[0]
-                  ? {
-                      answer: taskSubmissions[0].answer,
-                      isCorrect: taskSubmissions[0].isCorrect,
-                      submittedAt: taskSubmissions[0].submittedAt,
-                    }
+                  ? taskSubmissions[0].retryAllowed
+                    ? null
+                    : {
+                        answer: taskSubmissions[0].answer,
+                        isCorrect: taskSubmissions[0].isCorrect,
+                        submittedAt: taskSubmissions[0].submittedAt,
+                      }
                   : null,
               }),
         };
@@ -160,9 +166,6 @@ export async function POST(
     archivedAt: null,
   });
   if (!group) return jsonError("Bu ev tapşırığına giriş icazəniz yoxdur.", 403);
-  if (assignment.dueAt && assignment.dueAt.getTime() < Date.now()) {
-    return jsonError("Ev tapşırığının son vaxtı bitib.", 409);
-  }
   if (
     !assignment.taskIds.some((taskId: mongoose.Types.ObjectId) =>
       taskId.equals(taskObjectId),
@@ -175,9 +178,16 @@ export async function POST(
     assignmentId: assignment._id,
     taskId: taskObjectId,
     studentId: student._id,
-  }).select("_id");
-  if (existing) {
+  }).select("_id retryAllowed");
+  if (existing && !existing.retryAllowed) {
     return jsonError("Bu suala cavab artıq göndərilib.", 409);
+  }
+  if (
+    !existing &&
+    assignment.dueAt &&
+    assignment.dueAt.getTime() < Date.now()
+  ) {
+    return jsonError("Ev tapşırığının son vaxtı bitib.", 409);
   }
 
   const task = await Task.findById(taskObjectId).select("+correctAnswer");
@@ -199,6 +209,34 @@ export async function POST(
     task.correctAnswer,
     task.type,
   );
+  if (existing?.retryAllowed) {
+    const submission = await HomeworkSubmission.findOneAndUpdate(
+      {
+        _id: existing._id,
+        retryAllowed: true,
+      },
+      {
+        $set: {
+          answer: body.answer,
+          isCorrect,
+          retryAllowed: false,
+          submittedAt: new Date(),
+        },
+      },
+      { new: true },
+    );
+    if (!submission) {
+      return jsonError("Bu suala cavab artıq göndərilib.", 409);
+    }
+    return Response.json({
+      submission: {
+        answer: submission.answer,
+        isCorrect: submission.isCorrect,
+        submittedAt: submission.submittedAt,
+      },
+    });
+  }
+
   try {
     const submission = await HomeworkSubmission.create({
       assignmentId: assignment._id,
@@ -228,6 +266,77 @@ export async function POST(
     }
     throw error;
   }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ assignmentId: string }> },
+) {
+  const admin = await requireUser("admin");
+  if (admin instanceof Response) return admin;
+
+  const { assignmentId } = await params;
+  if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
+    return jsonError("Ev tapşırığı tapılmadı.", 404);
+  }
+  const body = await readJsonObject(request);
+  if (
+    !body ||
+    body.action !== "reset-incorrect" ||
+    typeof body.taskId !== "string" ||
+    !mongoose.Types.ObjectId.isValid(body.taskId) ||
+    typeof body.studentId !== "string" ||
+    !mongoose.Types.ObjectId.isValid(body.studentId)
+  ) {
+    return jsonError("Yenidən cəhd məlumatları yanlışdır.", 400);
+  }
+
+  await connectToDatabase();
+  const assignment = await Assignment.findOne({
+    _id: assignmentId,
+    createdBy: admin._id,
+  }).select("taskIds");
+  if (!assignment) return jsonError("Ev tapşırığı tapılmadı.", 404);
+
+  const taskId = new mongoose.Types.ObjectId(body.taskId);
+  if (
+    !assignment.taskIds.some((assignmentTaskId: mongoose.Types.ObjectId) =>
+      assignmentTaskId.equals(taskId),
+    )
+  ) {
+    return jsonError("Tapşırıq bu ev tapşırığına aid deyil.", 404);
+  }
+
+  const filter = {
+    assignmentId: assignment._id,
+    taskId,
+    studentId: new mongoose.Types.ObjectId(body.studentId),
+  };
+  const submission = await HomeworkSubmission.findOne(filter).select(
+    "isCorrect retryAllowed",
+  );
+  if (!submission) return jsonError("Şagird cavabı tapılmadı.", 404);
+  if (submission.isCorrect) {
+    return jsonError("Yalnız səhv cavab üçün yenidən cəhd açmaq olar.", 409);
+  }
+  if (submission.retryAllowed) {
+    return Response.json({ success: true });
+  }
+
+  const result = await HomeworkSubmission.updateOne(
+    { _id: submission._id, isCorrect: false, retryAllowed: { $ne: true } },
+    { $set: { retryAllowed: true } },
+  );
+  if (result.modifiedCount !== 1) {
+    const current = await HomeworkSubmission.findById(submission._id).select(
+      "retryAllowed",
+    );
+    if (!current?.retryAllowed) {
+      return jsonError("Cavabı yenidən açmaq mümkün olmadı.", 409);
+    }
+  }
+
+  return Response.json({ success: true });
 }
 
 export async function DELETE(

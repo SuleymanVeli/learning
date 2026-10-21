@@ -26,6 +26,7 @@ interface HomeworkTask {
   contentBlocks: TaskContentBlock[];
   type: "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
   options: { id: string; text: string }[];
+  retryAllowed: boolean;
   submission: {
     answer: unknown;
     isCorrect: boolean;
@@ -488,7 +489,7 @@ function StudentHomeworkContent({
                   Seçdiyin cavab: {formatSubmissionAnswer(task.submission.answer, task)}
                 </p>
               </div>
-            ) : details.assignment.deadlinePassed ? (
+            ) : details.assignment.deadlinePassed && !task.retryAllowed ? (
               <p className="mt-5 rounded-xl bg-surface-muted p-4 text-sm text-muted">
                 Bu tapşırığın son tarixi bitib və yeni cavab göndərmək mümkün deyil.
               </p>
@@ -593,7 +594,8 @@ function StudentHomeworkContent({
               >
                 ← Əvvəlki
               </Button>
-              {task.submission || details.assignment.deadlinePassed ? (
+              {task.submission ||
+              (details.assignment.deadlinePassed && !task.retryAllowed) ? (
                 <span aria-hidden="true" />
               ) : (
                 <Button

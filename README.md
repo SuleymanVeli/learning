@@ -12,6 +12,9 @@ with Next.js, TypeScript, Tailwind CSS, MongoDB, and Firebase Realtime Database.
 
 Use a unique random `SESSION_SECRET` of at least 32 characters. Keep
 `.env.local` private.
+To generate draft tasks with Gemini, add `GEMINI_API_KEY` to `.env.local`.
+Optionally set `GEMINI_MODEL` (defaults to `gemini-2.5-flash`). Generated tasks
+are not stored until an admin reviews and saves them.
 For Firebase realtime signals, set the `NEXT_PUBLIC_FIREBASE_*` client settings
 and `FIREBASE_SERVICE_ACCOUNT_JSON` to the Firebase service account JSON. Never
 expose or commit the service account.
@@ -58,6 +61,7 @@ same-site session cookie.
 | GET | `/api/groups/join/:accessCode` | Public | Look up an active group invite |
 | PATCH, DELETE | `/api/students/:studentId` | Admin | Approve, activate/deactivate, reset password, or permanently delete a managed student |
 | GET, POST | `/api/tasks` | Admin | List tasks or create one in a required quiz |
+| POST | `/api/ai/tasks/generate` | Admin | Generate unsaved task drafts with Gemini |
 | PATCH, DELETE | `/api/tasks/:taskId` | Admin | Edit a task or archive it and remove it from quizzes |
 | POST | `/api/task-images` | Admin | Upload a task image to Vercel Blob |
 | GET, POST | `/api/quizzes` | Admin | List or create quizzes |

@@ -181,6 +181,7 @@ export function DashboardShell({
                   { href: "/admin", label: "Panel" },
                   { href: "/admin/quizzes", label: "Quizlər" },
                   { href: "/admin/tasks", label: "Tapşırıqlar" },
+                  { href: "/admin/ai-tasks", label: "AI ilə yarat" },
                   { href: "/admin/live-lessons", label: "Canlı dərslər" },
                   { href: "/admin/assignments", label: "Ev tapşırıqları" },
                   { href: "/admin/groups", label: "Qruplar" },
