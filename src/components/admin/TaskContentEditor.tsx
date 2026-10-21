@@ -18,6 +18,67 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   "image/webp",
 ]);
 
+type ImageTarget =
+  | { type: "block"; blockIndex: number }
+  | { type: "html"; blockIndex: number; imageIndex: number };
+
+interface HtmlImage {
+  blockIndex: number;
+  imageIndex: number;
+  source: string;
+  alt: string;
+}
+
+function getHtmlImages(blocks: TaskContentBlock[]): HtmlImage[] {
+  const images: HtmlImage[] = [];
+  blocks.forEach((block, blockIndex) => {
+    if (block.type !== "text") return;
+    const tags = block.text.match(/<img\b[^>]*>/gi) ?? [];
+    tags.forEach((tag, imageIndex) => {
+      const sourceMatch = tag.match(
+        /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
+      );
+      const altMatch = tag.match(
+        /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
+      );
+      images.push({
+        blockIndex,
+        imageIndex,
+        source: (sourceMatch?.[1] ?? sourceMatch?.[2] ?? sourceMatch?.[3] ?? "")
+          .replace(/&amp;/gi, "&"),
+        alt: (altMatch?.[1] ?? altMatch?.[2] ?? altMatch?.[3] ?? "")
+          .replace(/&amp;/gi, "&"),
+      });
+    });
+  });
+  return images;
+}
+
+function replaceHtmlImageSource(
+  html: string,
+  imageIndex: number,
+  source: string,
+): string {
+  let currentIndex = -1;
+  const escapedSource = source
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;");
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    currentIndex += 1;
+    if (currentIndex !== imageIndex) return tag;
+    const sourceAttribute =
+      /\bsrc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i;
+    if (sourceAttribute.test(tag)) {
+      return tag.replace(sourceAttribute, `src="${escapedSource}"`);
+    }
+    return tag.replace(
+      /\s*\/?>$/,
+      (closing) => ` src="${escapedSource}"${closing}`,
+    );
+  });
+}
+
 export function TaskContentEditor({
   initialBlocks,
   prompt,
@@ -37,8 +98,10 @@ export function TaskContentEditor({
   });
   const [activeTextIndex, setActiveTextIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const htmlImages = getHtmlImages(blocks);
 
   function updateBlocks(next: TaskContentBlock[]) {
     setBlocks(next);
@@ -57,21 +120,21 @@ export function TaskContentEditor({
 
   function handleFileChange(
     event: ChangeEvent<HTMLInputElement>,
-    replaceIndex?: number,
+    target?: ImageTarget,
   ) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
-    if (file) void uploadImage(file, replaceIndex);
+    if (file) void uploadImage(file, target);
   }
 
-  async function uploadImage(file: File, replaceIndex?: number) {
+  async function uploadImage(file: File, target?: ImageTarget) {
     setError("");
-    if (blocks.length >= 100 && replaceIndex === undefined) {
+    if (blocks.length >= 100 && target === undefined) {
       setError("Kontent maksimum 100 blokdan ibarət ola bilər.");
       return;
     }
     if (
-      replaceIndex === undefined &&
+      target === undefined &&
       blocks.filter((block) => block.type === "image").length >= 20
     ) {
       setError("Bir tapşırığa maksimum 20 şəkil əlavə etmək olar.");
@@ -115,12 +178,29 @@ export function TaskContentEditor({
       }
 
       const next = [...blocks];
-      if (replaceIndex !== undefined) {
-        const currentBlock = next[replaceIndex];
+      if (target?.type === "block") {
+        const currentBlock = next[target.blockIndex];
         if (!currentBlock || currentBlock.type !== "image") {
           throw new Error("Dəyişdiriləcək şəkil artıq mövcud deyil.");
         }
-        next[replaceIndex] = { ...currentBlock, url: result.url };
+        next[target.blockIndex] = { ...currentBlock, url: result.url };
+      } else if (target?.type === "html") {
+        const currentBlock = next[target.blockIndex];
+        if (!currentBlock || currentBlock.type !== "text") {
+          throw new Error("Dəyişdiriləcək şəkil artıq mövcud deyil.");
+        }
+        const imageCount = currentBlock.text.match(/<img\b[^>]*>/gi)?.length ?? 0;
+        if (target.imageIndex >= imageCount) {
+          throw new Error("Dəyişdiriləcək şəkil artıq mövcud deyil.");
+        }
+        next[target.blockIndex] = {
+          ...currentBlock,
+          text: replaceHtmlImageSource(
+            currentBlock.text,
+            target.imageIndex,
+            result.url,
+          ),
+        };
       } else {
         const insertionIndex = Math.min(
           Math.max(activeTextIndex + 1, 0),
@@ -145,7 +225,7 @@ export function TaskContentEditor({
     }
   }
 
-  async function pasteFromClipboard() {
+  async function pasteFromClipboard(target?: ImageTarget) {
     setError("");
     if (!navigator.clipboard?.read) {
       setError("Şəkli mətn sahəsində seçib Ctrl+V ilə yapışdırın.");
@@ -163,6 +243,7 @@ export function TaskContentEditor({
           const extension = imageType.split("/")[1].replace("jpeg", "jpg");
           await uploadImage(
             new File([image], `screenshot.${extension}`, { type: imageType }),
+            target,
           );
           return;
         }
@@ -179,19 +260,43 @@ export function TaskContentEditor({
     }
   }
 
-  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+  function handlePaste(
+    event: ClipboardEvent<HTMLDivElement>,
+    target?: ImageTarget,
+  ) {
     const image = Array.from(event.clipboardData.items)
       .find((item) => SUPPORTED_IMAGE_TYPES.has(item.type))
       ?.getAsFile();
     if (!image) return;
     event.preventDefault();
-    void uploadImage(image);
+    event.stopPropagation();
+    void uploadImage(image, target);
   }
+
+  const previewContent = blocks
+    .map((block) =>
+      block.type === "text"
+        ? `<div class="task-content-html">${block.text}</div>`
+        : `<div><img src="${block.url.replaceAll('"', "&quot;")}" alt="${block.alt.replaceAll('"', "&quot;")}" style="width:${block.width}%;max-width:${block.maxWidthPx ?? 800}px;height:auto"></div>`,
+    )
+    .join("");
+  const previewDocument = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src http: https: data: blob:; style-src 'unsafe-inline'"><style>body{font:14px/1.6 system-ui,sans-serif;color:#1e293b;padding:12px;margin:0}.task-content-html img{height:auto;max-width:100%}.task-content-html p{margin:.75rem 0}.task-content-html table{border-collapse:collapse;width:100%}.task-content-html th,.task-content-html td{border:1px solid #cbd5e1;padding:6px}.task-content-html th{background:#f1f5f9;text-align:left}</style></head><body>${previewContent}</body></html>`;
 
   return (
     <div className="space-y-3" onPaste={handlePaste}>
       <div>
-        <h3 className="text-sm font-semibold text-slate-700">Sualın kontenti</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-700">Sualın kontenti</h3>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-pressed={showPreview}
+            onClick={() => setShowPreview((current) => !current)}
+          >
+            {showPreview ? "Redaktora qayıt" : "Önizləməni göstər"}
+          </Button>
+        </div>
         <p className="mt-1 text-xs leading-5 text-muted">
           Mətn və şəkilləri istədiyiniz ardıcıllıqla əlavə edin. Şəkli mətn
           sahəsində Ctrl+V ilə, düymə ilə yapışdırın və ya fayldan seçin.
@@ -199,6 +304,105 @@ export function TaskContentEditor({
           açıq Blob URL ilə saxlanılır.
         </p>
       </div>
+
+      {showPreview && (
+        <section className="space-y-3 rounded-xl border border-border p-3">
+          <h4 className="text-sm font-semibold">Tapşırığın önizləməsi</h4>
+          <iframe
+            title="Tapşırıq kontentinin önizləməsi"
+            sandbox=""
+            referrerPolicy="no-referrer"
+            srcDoc={previewDocument}
+            className="h-80 w-full rounded-lg border border-border bg-white"
+          />
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold">
+              HTML-dəki şəkillər ({htmlImages.length})
+            </h4>
+            {htmlImages.length ? (
+              htmlImages.map((image, index) => (
+                <div
+                  key={`${image.blockIndex}-${image.imageIndex}`}
+                  className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center"
+                  onPaste={(event) =>
+                    handlePaste(event, {
+                      type: "html",
+                      blockIndex: image.blockIndex,
+                      imageIndex: image.imageIndex,
+                    })
+                  }
+                >
+                  {image.source ? (
+                    <Image
+                      src={image.source}
+                      alt={image.alt}
+                      width={80}
+                      height={64}
+                      unoptimized
+                      className="h-16 w-20 rounded border border-border object-contain"
+                    />
+                  ) : (
+                    <div className="grid h-16 w-20 place-items-center rounded border border-dashed border-border text-xs text-muted">
+                      Şəkil yoxdur
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted">
+                      HTML şəkli · {index + 1}
+                    </p>
+                    <p className="break-all text-xs text-foreground">
+                      {image.source || "src atributu yoxdur"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label
+                      className={`inline-flex cursor-pointer items-center justify-center rounded-xl border-2 border-border bg-transparent px-3 py-1.5 text-sm font-semibold text-foreground hover:border-brand-200 hover:bg-brand-50 ${
+                        disabled || uploading
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
+                      }`}
+                    >
+                      {uploading ? "Yüklənir..." : "Şəkli yüklə"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/gif,image/webp"
+                        className="sr-only"
+                        disabled={disabled || uploading}
+                        onChange={(event) =>
+                          handleFileChange(event, {
+                            type: "html",
+                            blockIndex: image.blockIndex,
+                            imageIndex: image.imageIndex,
+                          })
+                        }
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={disabled || uploading}
+                      onClick={() =>
+                        void pasteFromClipboard({
+                          type: "html",
+                          blockIndex: image.blockIndex,
+                          imageIndex: image.imageIndex,
+                        })
+                      }
+                    >
+                      Yapışdır
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-muted">
+                Mətn hissələrində dəyişdirilə bilən HTML şəkli tapılmadı.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="flex justify-end">
         <Button
@@ -266,7 +470,7 @@ export function TaskContentEditor({
               value={block.text}
               rows={3}
               maxLength={10000}
-              disabled={disabled}
+              disabled={disabled || uploading}
               onFocus={() => setActiveTextIndex(index)}
               onChange={(event) => {
                 const next = [...blocks];
@@ -355,7 +559,7 @@ export function TaskContentEditor({
                 max={100}
                 step={5}
                 value={block.width}
-                disabled={disabled}
+                disabled={disabled || uploading}
                 onChange={(event) => {
                   const next = [...blocks];
                   next[index] = {
@@ -377,7 +581,7 @@ export function TaskContentEditor({
                 max={4096}
                 step={1}
                 value={block.maxWidthPx ?? 800}
-                disabled={disabled}
+                disabled={disabled || uploading}
                 onChange={(event) => {
                   const maxWidthPx = Number(event.currentTarget.value);
                   if (
@@ -401,7 +605,7 @@ export function TaskContentEditor({
               <input
                 value={block.alt}
                 maxLength={300}
-                disabled={disabled}
+                disabled={disabled || uploading}
                 onChange={(event) => {
                   const next = [...blocks];
                   next[index] = { ...block, alt: event.currentTarget.value };
@@ -422,7 +626,9 @@ export function TaskContentEditor({
                   accept="image/png,image/jpeg,image/gif,image/webp"
                   className="sr-only"
                   disabled={disabled || uploading}
-                  onChange={(event) => handleFileChange(event, index)}
+                  onChange={(event) =>
+                    handleFileChange(event, { type: "block", blockIndex: index })
+                  }
                 />
               </label>
               <Button

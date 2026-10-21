@@ -21,6 +21,7 @@ const TASK_HTML_OPTIONS: sanitizeHtml.IOptions = {
     "ins",
     "li",
     "mark",
+    "img",
     "ol",
     "p",
     "pre",
@@ -41,6 +42,7 @@ const TASK_HTML_OPTIONS: sanitizeHtml.IOptions = {
   ],
   allowedAttributes: {
     a: ["href", "title"],
+    img: ["alt", "height", "src", "title", "width"],
     td: ["colspan", "rowspan"],
     th: ["colspan", "rowspan"],
   },

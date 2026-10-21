@@ -893,6 +893,11 @@ body {
   margin-block: 0.75rem;
 }
 
+.task-content-html img {
+  height: auto;
+  max-width: 100%;
+}
+
 .task-content-html h2,
 .task-content-html h3,
 .task-content-html h4 {
