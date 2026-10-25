@@ -9,6 +9,10 @@ import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Select } from "@/src/components/ui/Select";
 import { Modal } from "@/src/components/ui/Modal";
+import {
+  ScoreLeaderboard,
+  type ScoreLeaderboardEntry,
+} from "@/src/components/student/ScoreLeaderboard";
 import { requestJson } from "@/src/lib/client-api";
 
 interface GroupSummary {
@@ -251,6 +255,17 @@ function AdminHomeworkContent({ name }: { name: string }) {
                   >
                     Nəticələrə bax
                   </Link>
+                  <ScoreLeaderboard
+                    title={`${assignment.title} — skor cədvəli`}
+                    description="Qrupdakı şagirdlərin işlədiyi, düzgün və səhv sualların sayı."
+                    buttonLabel="🏆 Skor cədvəli"
+                    loadEntries={async () => {
+                      const result = await requestJson<{
+                        leaderboard: ScoreLeaderboardEntry[];
+                      }>(`/api/assignments/${assignment._id}`);
+                      return result.leaderboard;
+                    }}
+                  />
                   <Button
                     type="button"
                     variant="danger"

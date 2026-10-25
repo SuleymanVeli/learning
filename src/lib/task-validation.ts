@@ -16,13 +16,51 @@ function parseOptions(value: unknown): TaskOption[] | null {
       option === null ||
       typeof option !== "object" ||
       !("id" in option) ||
-      !("text" in option) ||
       !isNonEmptyString(option.id) ||
-      !isNonEmptyString(option.text)
+      ("text" in option && typeof option.text !== "string") ||
+      ("imageUrl" in option && typeof option.imageUrl !== "string") ||
+      ("imageWidthPx" in option &&
+        (typeof option.imageWidthPx !== "number" ||
+          !Number.isInteger(option.imageWidthPx) ||
+          option.imageWidthPx < 1 ||
+          option.imageWidthPx > 4096)) ||
+      ("imageHeightPx" in option &&
+        (typeof option.imageHeightPx !== "number" ||
+          !Number.isInteger(option.imageHeightPx) ||
+          option.imageHeightPx < 1 ||
+          option.imageHeightPx > 4096))
     ) {
       return null;
     }
-    options.push({ id: option.id.trim(), text: option.text.trim() });
+    const text = "text" in option ? option.text.trim() : "";
+    const imageUrl =
+      "imageUrl" in option && option.imageUrl ? option.imageUrl : undefined;
+    if (!text && !imageUrl) return null;
+    if (
+      (imageUrl &&
+        (imageUrl.length > 2048 || !isPublicTaskImageUrl(imageUrl))) ||
+      (!imageUrl &&
+        ("imageWidthPx" in option || "imageHeightPx" in option))
+    ) {
+      return null;
+    }
+    options.push({
+      id: option.id.trim(),
+      text,
+      ...(imageUrl
+        ? {
+            imageUrl,
+            imageWidthPx:
+              "imageWidthPx" in option && typeof option.imageWidthPx === "number"
+                ? option.imageWidthPx
+                : 240,
+            imageHeightPx:
+              "imageHeightPx" in option && typeof option.imageHeightPx === "number"
+                ? option.imageHeightPx
+                : 160,
+          }
+        : {}),
+    });
   }
   if (
     options.some(
@@ -33,6 +71,18 @@ function parseOptions(value: unknown): TaskOption[] | null {
     return null;
   }
   return options;
+}
+
+function isPublicTaskImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname.endsWith(".public.blob.vercel-storage.com")
+    );
+  } catch {
+    return false;
+  }
 }
 
 interface ParsedTask {

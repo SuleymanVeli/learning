@@ -43,6 +43,97 @@ export async function GET(
     }
   }
 
+  let leaderboard: {
+    studentId: string;
+    name: string;
+    rank: number;
+    answered: number;
+    correct: number;
+    incorrect: number;
+    isCurrentStudent: boolean;
+  }[] = [];
+  const group = await Group.findOne({
+    _id: lesson.groupId._id,
+    ...(isAdmin ? { adminId: user._id } : { studentIds: user._id }),
+    archivedAt: null,
+  })
+    .select("studentIds")
+    .lean();
+  if (!group) return jsonError("Canlı dərs tapılmadı.", 404);
+
+  const closedTaskIds =
+    lesson.status === "ended"
+      ? lesson.taskIds
+      : lesson.taskIds.slice(0, lesson.activeTaskIndex);
+  const [students, submissions] = await Promise.all([
+    User.find({
+      _id: { $in: group.studentIds },
+      role: "student",
+      isActive: true,
+      approvalStatus: "approved",
+    })
+      .select("_id name")
+      .lean(),
+    closedTaskIds.length
+      ? Submission.find({
+          lessonId: lesson._id,
+          taskId: { $in: closedTaskIds },
+          studentId: { $in: group.studentIds },
+        })
+          .select("studentId +isCorrect")
+          .lean()
+      : Promise.resolve([]),
+  ]);
+  const statsByStudent = new Map<
+    string,
+    { answered: number; correct: number; incorrect: number }
+  >();
+  for (const submission of submissions) {
+    const studentId = submission.studentId.toString();
+    const stats = statsByStudent.get(studentId) ?? {
+      answered: 0,
+      correct: 0,
+      incorrect: 0,
+    };
+    stats.answered += 1;
+    if (submission.isCorrect) stats.correct += 1;
+    else stats.incorrect += 1;
+    statsByStudent.set(studentId, stats);
+  }
+  const rankedStudents = students
+    .map((student) => ({
+      studentId: student._id.toString(),
+      name: student.name,
+      ...(statsByStudent.get(student._id.toString()) ?? {
+        answered: 0,
+        correct: 0,
+        incorrect: 0,
+      }),
+      isCurrentStudent: !isAdmin && student._id.equals(user._id),
+    }))
+    .sort(
+      (left, right) =>
+        right.correct - left.correct ||
+        left.incorrect - right.incorrect ||
+        left.name.localeCompare(right.name, "az"),
+    );
+  let previousScore: { correct: number; incorrect: number } | null = null;
+  let currentRank = 0;
+  leaderboard = rankedStudents.map((student, index) => {
+    if (
+      !previousScore ||
+      student.correct !== previousScore.correct ||
+      student.incorrect !== previousScore.incorrect
+    ) {
+      currentRank = index + 1;
+    }
+    previousScore = {
+      correct: student.correct,
+      incorrect: student.incorrect,
+    };
+    return { ...student, rank: currentRank };
+  });
+
   const tasks = await Task.find({ _id: { $in: lesson.taskIds } })
     .select("title prompt contentBlocks type options")
     .lean();
@@ -90,6 +181,7 @@ export async function GET(
       startedAt: lesson.startedAt?.toISOString() ?? null,
       endsAt: lesson.endsAt?.toISOString() ?? null,
       tabs,
+      ...(!isAdmin ? { leaderboard } : {}),
     },
   });
 }

@@ -12,6 +12,9 @@ export type TaskType = (typeof TASK_TYPES)[number];
 export interface TaskOption {
   id: string;
   text: string;
+  imageUrl?: string;
+  imageWidthPx?: number;
+  imageHeightPx?: number;
 }
 
 export type TaskContentBlock =
@@ -65,7 +68,10 @@ const taskSchema = new Schema<TaskDocument>(
         new Schema(
           {
             id: { type: String, required: true, trim: true },
-            text: { type: String, required: true, trim: true, maxlength: 1000 },
+            text: { type: String, trim: true, maxlength: 1000, default: "" },
+            imageUrl: { type: String, maxlength: 2048 },
+            imageWidthPx: { type: Number, min: 1, max: 4096 },
+            imageHeightPx: { type: Number, min: 1, max: 4096 },
           },
           { _id: false },
         ),

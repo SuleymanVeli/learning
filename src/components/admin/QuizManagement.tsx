@@ -8,7 +8,27 @@ import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Modal } from "@/src/components/ui/Modal";
 import { Select } from "@/src/components/ui/Select";
+import { Textarea } from "@/src/components/ui/Textarea";
 import { requestJson } from "@/src/lib/client-api";
+
+const DEFAULT_TASKS_JSON = JSON.stringify(
+  [
+    {
+      title: "Nümunə tapşırıq",
+      prompt: "Sualın mətnini bura yazın.",
+      type: "single_choice",
+      options: [
+        { id: "option-1", text: "Birinci variant" },
+        { id: "option-2", text: "İkinci variant" },
+      ],
+      correctAnswer: "option-1",
+      explanation: "",
+      difficulty: "medium",
+    },
+  ],
+  null,
+  2,
+);
 
 interface TaskSummary {
   _id: string;
@@ -52,6 +72,9 @@ function QuizManagementContent({ name }: { name: string }) {
   const [pickerQuizId, setPickerQuizId] = useState("");
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [jsonTaskModalOpen, setJsonTaskModalOpen] = useState(false);
+  const [jsonQuizId, setJsonQuizId] = useState("");
+  const [jsonTasks, setJsonTasks] = useState(DEFAULT_TASKS_JSON);
   const [deleteQuiz, setDeleteQuiz] = useState<QuizItem | null>(null);
   const [expandedQuizIds, setExpandedQuizIds] = useState<Set<string>>(
     () => new Set(),
@@ -158,6 +181,62 @@ function QuizManagementContent({ name }: { name: string }) {
     setPickerOpen(true);
   }
 
+  function openJsonTaskModal() {
+    setError("");
+    setNotice("");
+    setJsonQuizId("");
+    setJsonTasks(DEFAULT_TASKS_JSON);
+    setJsonTaskModalOpen(true);
+  }
+
+  async function saveJsonTasks(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!jsonQuizId) {
+      setError("Tapşırıqların əlavə ediləcəyi quiz-i seç.");
+      return;
+    }
+
+    let parsedTasks: unknown;
+    try {
+      parsedTasks = JSON.parse(jsonTasks);
+    } catch {
+      setError("JSON formatı yanlışdır. Nümunə modelə uyğunluğu yoxlayın.");
+      return;
+    }
+    if (!Array.isArray(parsedTasks) || parsedTasks.length === 0) {
+      setError("JSON ən azı bir tapşırıqdan ibarət massiv olmalıdır.");
+      return;
+    }
+    if (parsedTasks.length > 100) {
+      setError("Bir dəfəyə maksimum 100 tapşırıq əlavə etmək olar.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await requestJson<{ createdCount: number }>(
+        `/api/quizzes/${jsonQuizId}/tasks`,
+        {
+          method: "POST",
+          body: JSON.stringify({ tasks: parsedTasks }),
+        },
+      );
+      setJsonTaskModalOpen(false);
+      setNotice(`${result.createdCount} tapşırıq quizə əlavə olundu.`);
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "JSON tapşırıqlarını əlavə etmək olmadı.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveTaskSelection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!pickerQuizId) {
@@ -251,6 +330,9 @@ function QuizManagementContent({ name }: { name: string }) {
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => openTaskPicker("add")}>
             Tapşırıq əlavə et
+          </Button>
+          <Button variant="outline" onClick={openJsonTaskModal}>
+            JSON-la əlavə et
           </Button>
           <Button onClick={() => openQuiz({ type: "create" })}>
             Quiz yarat
@@ -459,6 +541,77 @@ function QuizManagementContent({ name }: { name: string }) {
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? "Yadda saxlanılır..." : "Quiz-i yadda saxla"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={jsonTaskModalOpen}
+        title="Tapşırıqları JSON-la əlavə et"
+        description="Nümunə modeli saxlayaraq bir və ya bir neçə tapşırığı JSON massivi kimi daxil edin."
+        onClose={() => setJsonTaskModalOpen(false)}
+      >
+        <form className="space-y-5" onSubmit={saveJsonTasks}>
+          {error && <InlineNotice message={error} isError />}
+          {quizzes.length ? (
+            <Select
+              label="Quiz seç"
+              value={jsonQuizId}
+              onChange={(event) => setJsonQuizId(event.currentTarget.value)}
+              required
+            >
+              <option value="">Quiz seçin</option>
+              {quizzes.map((quiz) => (
+                <option key={quiz._id} value={quiz._id}>
+                  {quiz.title}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <div className="rounded-xl bg-warning-50 px-4 py-3">
+              <p className="text-sm text-warning-600">
+                Tapşırıq əlavə etməzdən əvvəl quiz yaratmalısan.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setJsonTaskModalOpen(false);
+                  openQuiz({ type: "create" });
+                }}
+              >
+                Quiz yarat
+              </Button>
+            </div>
+          )}
+          <Textarea
+            label="Tapşırıqların JSON modeli"
+            value={jsonTasks}
+            onChange={(event) => setJsonTasks(event.currentTarget.value)}
+            rows={18}
+            spellCheck={false}
+            className="font-mono text-xs"
+            required
+          />
+          <p className="-mt-3 text-xs leading-5 text-muted">
+            Variantlı sualda <code>options</code> içində unikal <code>id</code>{" "}
+            və <code>text</code> sahələri verin. Bir düzgün cavablı sualda{" "}
+            <code>correctAnswer</code> düzgün variantın ID-si, çox cavablı
+            sualda isə ID-lərin massivi olmalıdır. Maksimum 100 tapşırıq əlavə
+            edilə bilər.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setJsonTaskModalOpen(false)}
+            >
+              Ləğv et
+            </Button>
+            <Button type="submit" disabled={saving || !quizzes.length}>
+              {saving ? "Əlavə olunur..." : "Tapşırıqları əlavə et"}
             </Button>
           </div>
         </form>

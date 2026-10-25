@@ -9,8 +9,13 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
+import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
+import {
+  ScoreLeaderboard,
+  type ScoreLeaderboardEntry,
+} from "@/src/components/student/ScoreLeaderboard";
 import { requestJson } from "@/src/lib/client-api";
-import type { TaskContentBlock } from "@/src/models/Task";
+import type { TaskContentBlock, TaskOption } from "@/src/models/Task";
 
 type TaskKind = "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
 
@@ -20,7 +25,7 @@ interface LessonTask {
   prompt?: string;
   contentBlocks?: TaskContentBlock[];
   type?: TaskKind;
-  options?: { id: string; text: string }[];
+  options?: TaskOption[];
 }
 
 interface LessonData {
@@ -33,6 +38,7 @@ interface LessonData {
   durationSeconds: number;
   endsAt: string | null;
   tabs: LessonTask[];
+  leaderboard?: ScoreLeaderboardEntry[];
 }
 
 interface LiveSubmission {
@@ -145,6 +151,8 @@ function LiveLessonDetailContent({
   const activeTask = lesson?.tabs[lesson.activeTaskIndex] ?? null;
   const displayedTask =
     role === "admin" ? lesson?.tabs[selectedTab] ?? null : activeTask;
+  const hasImageOptions =
+    displayedTask?.options?.some((option) => Boolean(option.imageUrl)) ?? false;
   const readyTask =
     displayedTask?.type && displayedTask.options
       ? {
@@ -248,6 +256,13 @@ function LiveLessonDetailContent({
           >
             {lesson.status === "live" ? "Canlı" : lesson.status === "ended" ? "Bitib" : "Hazır"}
           </span>
+          {role === "student" && (
+            <ScoreLeaderboard
+              title="Canlı dərsin ümumi sıralaması"
+              description="Skor tamamlanmış suallara görə hesablanır. Cari sual cavablandırma vaxtı bitəndən sonra sıralamaya əlavə olunacaq."
+              entries={lesson.leaderboard ?? []}
+            />
+          )}
         </div>
       ) : (
         <>
@@ -259,17 +274,24 @@ function LiveLessonDetailContent({
           </Link>
           <div className="mb-6 mt-4 flex flex-wrap items-end justify-between gap-4">
             <h1 className="mt-1 text-3xl font-black">{lesson.title}</h1>
-            <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                lesson.status === "live"
-                  ? "bg-success-50 text-success-600"
-                  : lesson.status === "ended"
-                    ? "bg-surface-muted text-muted"
-                    : "bg-warning-50 text-warning-600"
-              }`}
-            >
-              {lesson.status === "live" ? "Canlı" : lesson.status === "ended" ? "Bitib" : "Hazır"}
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <ScoreLeaderboard
+                title="Canlı dərsin ümumi sıralaması"
+                description="Skor tamamlanmış suallara görə hesablanır. Cari sual cavablandırma vaxtı bitəndən sonra sıralamaya əlavə olunacaq."
+                entries={lesson.leaderboard ?? []}
+              />
+              <span
+                className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                  lesson.status === "live"
+                    ? "bg-success-50 text-success-600"
+                    : lesson.status === "ended"
+                      ? "bg-surface-muted text-muted"
+                      : "bg-warning-50 text-warning-600"
+                }`}
+              >
+                {lesson.status === "live" ? "Canlı" : lesson.status === "ended" ? "Bitib" : "Hazır"}
+              </span>
+            </div>
           </div>
         </>
       )}
@@ -370,15 +392,6 @@ function LiveLessonDetailContent({
                     Vaxtı dayandır
                   </Button>
                 )}
-                {lesson.status !== "ended" && (
-                  <Button
-                    variant="danger"
-                    disabled={saving}
-                    onClick={() => void runAction("end")}
-                  >
-                    Dərsi bitir
-                  </Button>
-                )}
               </div>
             )}
             <div className={role === "student" ? "student-live-question" : ""}>
@@ -392,7 +405,13 @@ function LiveLessonDetailContent({
                   <legend className="text-sm font-medium text-foreground">
                     Ardıcıllığı qurmaq üçün variantlara sıra ilə toxun
                   </legend>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div
+                    className={
+                      hasImageOptions
+                        ? "grid grid-cols-2 gap-2"
+                        : "grid gap-2 sm:grid-cols-2"
+                    }
+                  >
                     {readyTask.options.map((option) => {
                       const selected = Array.isArray(answer) ? answer : [];
                       const position = selected.indexOf(option.id);
@@ -420,7 +439,7 @@ function LiveLessonDetailContent({
                               {position + 1}
                             </span>
                           )}
-                          {option.text}
+                          <TaskOptionContent option={option} />
                         </button>
                       );
                     })}
@@ -437,7 +456,14 @@ function LiveLessonDetailContent({
                   )}
                 </fieldset>
               ) : readyTask.type !== "short_answer" ? (
-                readyTask.options.map((option, index) => {
+                <div
+                  className={
+                    hasImageOptions
+                      ? "grid grid-cols-2 gap-2"
+                      : "space-y-3"
+                  }
+                >
+                  {readyTask.options.map((option, index) => {
                   const selected = Array.isArray(answer)
                     ? answer.includes(option.id)
                     : answer === option.id;
@@ -445,7 +471,7 @@ function LiveLessonDetailContent({
                   return (
                     <label
                       key={option.id}
-                      className={`student-live-option flex min-h-16 items-center gap-3 rounded-2xl border-2 p-3 font-bold ${
+                      className={`student-live-option flex min-h-16 min-w-0 items-start gap-3 rounded-2xl border-2 p-3 font-bold ${
                         selected
                           ? "is-selected"
                           : ""
@@ -474,10 +500,11 @@ function LiveLessonDetailContent({
                       <span className="student-live-choice-letter" aria-hidden="true">
                         {String.fromCharCode(65 + index)}
                       </span>
-                      {option.text}
+                      <TaskOptionContent option={option} />
                     </label>
                   );
-                })
+                  })}
+                </div>
               ) : null}
               {readyTask.type === "short_answer" && (
                 <Input

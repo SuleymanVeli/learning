@@ -5,7 +5,8 @@ import { RoleGate } from "@/src/components/app/RoleGate";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
 import { requestJson } from "@/src/lib/client-api";
 import { Button } from "@/src/components/ui/Button";
-import type { TaskContentBlock, TaskType } from "@/src/models/Task";
+import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
+import type { TaskContentBlock, TaskOption, TaskType } from "@/src/models/Task";
 
 interface TeacherTask {
   _id: string;
@@ -13,7 +14,7 @@ interface TeacherTask {
   prompt: string;
   contentBlocks: TaskContentBlock[];
   type: TaskType;
-  options: { id: string; text: string }[];
+  options: TaskOption[];
   correctAnswer: unknown;
   explanation?: string;
 }
@@ -123,17 +124,23 @@ function TeacherWindowContent({ lessonId }: { lessonId: string }) {
                   prompt={selectedTask.prompt}
                 />
                 {selectedTask.options.length > 0 && (
-                  <ol className="mt-5 space-y-2">
+                  <div
+                    className={`mt-5 ${
+                      selectedTask.options.some((option) => option.imageUrl)
+                        ? "grid grid-cols-2 gap-2"
+                        : "space-y-2"
+                    }`}
+                  >
                     {selectedTask.options.map((option, index) => (
-                      <li
+                      <div
                         key={option.id}
-                        className="flex items-start gap-3 rounded-xl border border-border bg-surface-muted p-3 text-sm"
+                        className="flex min-w-0 items-start gap-3 rounded-xl border border-border bg-surface-muted p-3 text-sm"
                       >
                         <span className="font-bold">{index + 1}.</span>
-                        <span>{option.text}</span>
-                      </li>
+                        <TaskOptionContent option={option} />
+                      </div>
                     ))}
-                  </ol>
+                  </div>
                 )}
                 <div className="mt-6 rounded-xl border border-warning-200 bg-warning-50 p-5">
                   <h2 className="text-lg font-bold text-warning-700">İzah</h2>
@@ -172,7 +179,8 @@ function correctAnswerText(task: TeacherTask) {
   return answers
     .map((answer) => {
       if (typeof answer !== "string") return String(answer);
-      return task.options.find((option) => option.id === answer)?.text ?? answer;
+      const option = task.options.find((item) => item.id === answer);
+      return option?.text || (option?.imageUrl ? "Şəkil variantı" : answer);
     })
     .join(task.type === "drag_drop" ? " → " : ", ");
 }

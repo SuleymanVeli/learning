@@ -9,7 +9,7 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
 import { requestJson } from "@/src/lib/client-api";
-import type { TaskContentBlock, TaskType } from "@/src/models/Task";
+import type { TaskContentBlock, TaskOption, TaskType } from "@/src/models/Task";
 
 interface HomeworkSubmissionRow {
   answer: unknown;
@@ -30,7 +30,7 @@ interface ResultTask {
   prompt: string;
   contentBlocks: TaskContentBlock[];
   type: TaskType;
-  options: { id: string; text: string }[];
+  options: TaskOption[];
   correctAnswer: unknown;
   explanation?: string;
   submissions: HomeworkSubmissionRow[];
@@ -51,7 +51,8 @@ function answerText(answer: unknown, task: ResultTask) {
   return values
     .map((value) => {
       if (typeof value !== "string") return String(value);
-      return task.options.find((option) => option.id === value)?.text ?? value;
+      const option = task.options.find((item) => item.id === value);
+      return option?.text || (option?.imageUrl ? "Şəkil variantı" : value);
     })
     .join(" → ");
 }

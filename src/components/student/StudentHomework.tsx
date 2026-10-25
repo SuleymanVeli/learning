@@ -7,8 +7,10 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
+import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
+import { ScoreLeaderboard } from "@/src/components/student/ScoreLeaderboard";
 import { requestJson } from "@/src/lib/client-api";
-import type { TaskContentBlock } from "@/src/models/Task";
+import type { TaskContentBlock, TaskOption } from "@/src/models/Task";
 
 interface AssignmentSummary {
   _id: string;
@@ -25,7 +27,7 @@ interface HomeworkTask {
   prompt: string;
   contentBlocks: TaskContentBlock[];
   type: "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
-  options: { id: string; text: string }[];
+  options: TaskOption[];
   retryAllowed: boolean;
   submission: {
     answer: unknown;
@@ -41,6 +43,15 @@ interface HomeworkDetails {
     dueAt: string | null;
     deadlinePassed: boolean;
   };
+  leaderboard: {
+    studentId: string;
+    name: string;
+    rank: number;
+    answered: number;
+    correct: number;
+    incorrect: number;
+    isCurrentStudent: boolean;
+  }[];
   tasks: HomeworkTask[];
 }
 
@@ -80,7 +91,8 @@ function formatSubmissionAnswer(answer: unknown, task: HomeworkTask): string {
   const values = Array.isArray(answer) ? answer : [answer];
   const formatted = values.map((value) => {
     if (typeof value !== "string") return JSON.stringify(value);
-    return task.options.find((option) => option.id === value)?.text ?? value;
+    const option = task.options.find((item) => item.id === value);
+    return option?.text || (option?.imageUrl ? "Şəkil variantı" : value);
   });
   return formatted.filter(Boolean).join(", ") || "—";
 }
@@ -127,7 +139,7 @@ function openHomeworkPdf(details: HomeworkDetails, studentName: string, draft: {
           ? formatSubmissionAnswer(draft.answer, task)
           : "Cavab verilməyib";
       const optionsHtml = task.options.length
-        ? `<ol type="A">${task.options.map((option) => `<li>${escapeHtml(option.text)}</li>`).join("")}</ol>`
+        ? `<ol type="A">${task.options.map((option) => `<li>${option.imageUrl ? `<img src="${escapeHtml(option.imageUrl)}" alt="${escapeHtml(option.text)}" width="${option.imageWidthPx ?? 240}" height="${option.imageHeightPx ?? 160}">` : ""}${escapeHtml(option.text)}</li>`).join("")}</ol>`
         : "";
 
       return `
@@ -310,6 +322,18 @@ function StudentHomeworkContent({
             }
           : current,
       );
+      try {
+        const refreshedDetails = await requestJson<HomeworkDetails>(
+          `/api/assignments/${details.assignment.id}`,
+        );
+        setDetails(refreshedDetails);
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? `Cavab göndərildi, amma sıralamanı yeniləmək olmadı: ${cause.message}`
+            : "Cavab göndərildi, amma sıralamanı yeniləmək olmadı.",
+        );
+      }
       setAssignments((current) =>
         current.map((assignment) =>
           assignment._id === details.assignment.id
@@ -358,6 +382,12 @@ function StudentHomeworkContent({
           <h1 className="min-w-0 truncate text-xl font-black sm:text-2xl">
             {details?.assignment.title ?? "Ev tapşırığı"}
           </h1>
+          {details && !detailsLoading && (
+            <ScoreLeaderboard
+              title="Ev tapşırığı sıralaması"
+              entries={details.leaderboard}
+            />
+          )}
           {/* {details && !detailsLoading && (
             <Button
               type="button"
@@ -441,6 +471,7 @@ function StudentHomeworkContent({
       ) : detailsLoading ? (
         <p className="py-12 text-center text-muted">Tapşırıq yüklənir...</p>
       ) : details && task ? (
+        <>
         <Card className="student-content-card student-homework-detail overflow-hidden p-0">
           <div
             role="tablist"
@@ -508,7 +539,13 @@ function StudentHomeworkContent({
                     <legend className="text-sm font-medium">
                       Cavab ardıcıllığını qurmaq üçün variantlara sıra ilə toxun
                     </legend>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div
+                      className={
+                        task.options.some((option) => option.imageUrl)
+                          ? "grid grid-cols-2 gap-2"
+                          : "grid gap-2 sm:grid-cols-2"
+                      }
+                    >
                       {task.options.map((option) => {
                         const selected = Array.isArray(answer) ? answer : [];
                         const index = selected.indexOf(option.id);
@@ -533,7 +570,7 @@ function StudentHomeworkContent({
                                 {index + 1}
                               </span>
                             )}
-                            {option.text}
+                            <TaskOptionContent option={option} />
                           </button>
                         );
                       })}
@@ -549,12 +586,19 @@ function StudentHomeworkContent({
                     <legend className="mb-2 font-medium">
                       {task.type === "multiple_choice" ? "Cavabları seç" : "Bir cavab seç"}
                     </legend>
+                    <div
+                      className={
+                        task.options.some((option) => option.imageUrl)
+                          ? "grid grid-cols-2 gap-2"
+                          : "space-y-2"
+                      }
+                    >
                     {task.options.map((option) => {
                       const chosen = Array.isArray(answer)
                         ? answer.includes(option.id)
                         : answer === option.id;
                       return (
-                        <label key={option.id} className={`student-answer-option flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-3 font-bold transition ${
+                        <label key={option.id} className={`student-answer-option flex min-h-14 min-w-0 cursor-pointer items-start gap-3 rounded-2xl border-2 px-4 py-3 font-bold transition ${
                           chosen ? "is-selected" : ""
                         }`}>
                           <input
@@ -575,10 +619,11 @@ function StudentHomeworkContent({
                             }}
                             className="h-5 w-5 shrink-0 accent-sky-600"
                           />
-                          {option.text}
+                          <TaskOptionContent option={option} />
                         </label>
                       );
                     })}
+                    </div>
                   </fieldset>
                 )}
               </form>
@@ -621,6 +666,7 @@ function StudentHomeworkContent({
             </div>
           </div>
         </Card>
+        </>
       ) : selectedId && error ? (
         <Card className="text-center text-muted">Tapşırığı açmaq mümkün olmadı. Yenidən cəhd et.</Card>
       ) : null}

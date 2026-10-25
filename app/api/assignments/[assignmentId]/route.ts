@@ -7,6 +7,7 @@ import { Assignment } from "@/src/models/Assignment";
 import { Group } from "@/src/models/Group";
 import { HomeworkSubmission } from "@/src/models/HomeworkSubmission";
 import { Task, type TaskDocument } from "@/src/models/Task";
+import { User } from "@/src/models/User";
 import { sanitizeTaskContentBlocks } from "@/src/lib/task-content-html";
 
 export async function GET(
@@ -30,20 +31,33 @@ export async function GET(
   }).lean();
   if (!assignment) return jsonError("Ev tapşırığı tapılmadı.", 404);
 
+  let assignmentGroup: { studentIds: mongoose.Types.ObjectId[] } | null = null;
   if (isAdmin) {
     if (assignment.createdBy.toString() !== user._id.toString()) {
       return jsonError("Ev tapşırığı tapılmadı.", 404);
     }
+    assignmentGroup = await Group.findOne({
+      _id: assignment.groupId,
+      adminId: user._id,
+      archivedAt: null,
+    })
+      .select("studentIds")
+      .lean();
   } else {
-    const group = await Group.exists({
+    assignmentGroup = await Group.findOne({
       _id: assignment.groupId,
       studentIds: user._id,
       archivedAt: null,
-    });
-    if (!group) return jsonError("Bu ev tapşırığına giriş icazəniz yoxdur.", 403);
+    })
+      .select("studentIds")
+      .lean();
+    if (!assignmentGroup)
+      return jsonError("Bu ev tapşırığına giriş icazəniz yoxdur.", 403);
   }
 
-  const [tasks, submissions] = await Promise.all([
+  if (!assignmentGroup) return jsonError("Ev tapşırığı tapılmadı.", 404);
+  const rosterIds = assignmentGroup.studentIds;
+  const [tasks, submissions, roster, allSubmissions] = await Promise.all([
     Task.find({ _id: { $in: assignment.taskIds } })
       .select(
         isAdmin
@@ -58,6 +72,23 @@ export async function GET(
       .select("taskId answer isCorrect retryAllowed submittedAt studentId")
       .populate("studentId", "name email avatar")
       .lean(),
+    User.find({
+      _id: { $in: rosterIds },
+      role: "student",
+      isActive: true,
+      approvalStatus: "approved",
+    })
+      .select("_id name")
+      .lean(),
+    rosterIds.length
+      ? HomeworkSubmission.find({
+          assignmentId: assignment._id,
+          studentId: { $in: rosterIds },
+          taskId: { $in: assignment.taskIds },
+        })
+          .select("studentId isCorrect")
+          .lean()
+      : Promise.resolve([]),
   ]);
   const tasksById = new Map<string, TaskDocument>(
     tasks.map((task: TaskDocument) => [task._id.toString(), task]),
@@ -78,6 +109,55 @@ export async function GET(
       return task ? [task] : [];
     },
   );
+  const leaderboardStats = new Map<
+    string,
+    { answered: number; correct: number; incorrect: number }
+  >();
+  for (const submission of allSubmissions) {
+    const studentId = submission.studentId.toString();
+    const stats = leaderboardStats.get(studentId) ?? {
+      answered: 0,
+      correct: 0,
+      incorrect: 0,
+    };
+    stats.answered += 1;
+    if (submission.isCorrect) stats.correct += 1;
+    else stats.incorrect += 1;
+    leaderboardStats.set(studentId, stats);
+  }
+  const leaderboardStatsRows = roster
+    .map((student) => ({
+      studentId: student._id.toString(),
+      name: student.name,
+      ...(leaderboardStats.get(student._id.toString()) ?? {
+        answered: 0,
+        correct: 0,
+        incorrect: 0,
+      }),
+      isCurrentStudent: !isAdmin && student._id.equals(user._id),
+    }))
+    .sort(
+      (left, right) =>
+        right.correct - left.correct ||
+        left.incorrect - right.incorrect ||
+        left.name.localeCompare(right.name, "az"),
+    );
+  let previousScore: { correct: number; incorrect: number } | null = null;
+  let currentRank = 0;
+  const leaderboard = leaderboardStatsRows.map((student, index) => {
+    if (
+      !previousScore ||
+      student.correct !== previousScore.correct ||
+      student.incorrect !== previousScore.incorrect
+    ) {
+      currentRank = index + 1;
+    }
+    previousScore = {
+      correct: student.correct,
+      incorrect: student.incorrect,
+    };
+    return { ...student, rank: currentRank };
+  });
 
   return Response.json({
     assignment: {
@@ -86,6 +166,7 @@ export async function GET(
       dueAt: assignment.dueAt?.toISOString() ?? null,
       deadlinePassed,
     },
+    leaderboard,
     tasks: orderedTasks.map((task) => {
         const taskSubmissions = submissionsByTask.get(task._id.toString()) ?? [];
         return {
