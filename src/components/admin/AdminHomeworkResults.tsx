@@ -8,6 +8,7 @@ import { RoleGate } from "@/src/components/app/RoleGate";
 import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
+import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
 import { requestJson } from "@/src/lib/client-api";
 import type { TaskContentBlock, TaskOption, TaskType } from "@/src/models/Task";
 
@@ -46,15 +47,32 @@ interface ResultData {
   tasks: ResultTask[];
 }
 
-function answerText(answer: unknown, task: ResultTask) {
+function AnswerContent({
+  answer,
+  task,
+}: {
+  answer: unknown;
+  task: ResultTask;
+}) {
   const values = Array.isArray(answer) ? answer : [answer];
-  return values
-    .map((value) => {
-      if (typeof value !== "string") return String(value);
-      const option = task.options.find((item) => item.id === value);
-      return option?.text || (option?.imageUrl ? "Şəkil variantı" : value);
-    })
-    .join(" → ");
+
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {values.map((value, index) => {
+        const option =
+          typeof value === "string"
+            ? task.options.find((item) => item.id === value)
+            : undefined;
+
+        return (
+          <span key={index} className="inline-flex min-w-0 items-center gap-2">
+            {index > 0 && <span>→</span>}
+            {option ? <TaskOptionContent option={option} /> : String(value)}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 export function AdminHomeworkResults({ assignmentId }: { assignmentId: string }) {
@@ -193,7 +211,9 @@ function AdminHomeworkResultsContent({
             <TaskContent className="mt-3" contentBlocks={task.contentBlocks} prompt={task.prompt} />
             <div className="mt-5 rounded-xl bg-success-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-success-600">Düzgün cavab</p>
-              <p className="mt-1 font-semibold text-success-600">{answerText(task.correctAnswer, task)}</p>
+              <div className="mt-1 font-semibold text-success-600">
+                <AnswerContent answer={task.correctAnswer} task={task} />
+              </div>
               {task.explanation && <p className="mt-2 text-sm text-foreground">{task.explanation}</p>}
             </div>
           </Card>
@@ -238,9 +258,9 @@ function AdminHomeworkResultsContent({
                       <p className="truncate font-semibold">
                         {submission.studentId?.name ?? "Şagird hesabı tapılmadı"}
                       </p>
-                      <p className="mt-1 break-words text-sm text-muted">
-                        {answerText(submission.answer, task)}
-                      </p>
+                      <div className="mt-1 break-words text-sm text-muted">
+                        <AnswerContent answer={submission.answer} task={task} />
+                      </div>
                     </div>
                     <div className="shrink-0 text-right">
                       <p className={`text-sm font-semibold ${
