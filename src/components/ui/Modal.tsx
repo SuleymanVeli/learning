@@ -31,6 +31,8 @@ export function Modal({
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
+  if(!open) return<></>
+
   return (
     <dialog
       ref={dialogRef}

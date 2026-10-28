@@ -97,6 +97,34 @@ function formatSubmissionAnswer(answer: unknown, task: HomeworkTask): string {
   return formatted.filter(Boolean).join(", ") || "—";
 }
 
+function SubmissionAnswer({
+  answer,
+  task,
+}: {
+  answer: unknown;
+  task: HomeworkTask;
+}) {
+  const values = Array.isArray(answer) ? answer : [answer];
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      {values.map((value, index) => {
+        const option =
+          typeof value === "string"
+            ? task.options.find((item) => item.id === value)
+            : undefined;
+
+        return (
+          <span key={index} className="inline-flex min-w-0 items-center gap-2">
+            {index > 0 && <span>,</span>}
+            {option ? <TaskOptionContent option={option} /> : String(value)}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -517,7 +545,8 @@ function StudentHomeworkContent({
                   {task.submission.isCorrect ? "Cavab düzgündür." : "Səhv cavabdır."}
                 </p>
                 <p className="mt-1 text-sm">
-                  Seçdiyin cavab: {formatSubmissionAnswer(task.submission.answer, task)}
+                  Seçdiyin cavab:{" "}
+                  <SubmissionAnswer answer={task.submission.answer} task={task} />
                 </p>
               </div>
             ) : details.assignment.deadlinePassed && !task.retryAllowed ? (

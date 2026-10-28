@@ -67,6 +67,7 @@ export function ScoreLeaderboard({
         open={open}
         title={title}
         description={description}
+        size="full"
         onClose={() => setOpen(false)}
       >
         {loading ? (
@@ -76,53 +77,55 @@ export function ScoreLeaderboard({
         ) : error ? (
           <p role="alert" className="text-sm text-danger-600">{error}</p>
         ) : leaderboard.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[540px] border-collapse text-left text-sm">
-              <thead className="bg-surface-muted text-xs font-bold uppercase tracking-wide text-muted">
-                <tr>
-                  <th scope="col" className="px-4 py-3">Yer</th>
-                  <th scope="col" className="px-4 py-3">Şagird</th>
-                  <th scope="col" className="px-4 py-3 text-center">İşlənib</th>
-                  <th scope="col" className="px-4 py-3 text-center">Düz</th>
-                  <th scope="col" className="px-4 py-3 text-center">Səhv</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {leaderboard.map((student) => (
-                  <tr
-                    key={student.studentId}
-                    className={
-                      student.isCurrentStudent
-                        ? "bg-brand-50 font-bold text-brand-900"
-                        : "text-foreground"
-                    }
-                  >
-                    <td className="px-4 py-3 tabular-nums">
-                      {student.rank <= 3
-                        ? ["🥇", "🥈", "🥉"][student.rank - 1]
-                        : student.rank}
-                    </td>
-                    <th scope="row" className="px-4 py-3 text-left font-semibold">
-                      {student.name}
-                      {student.isCurrentStudent && (
-                        <span className="ml-2 text-xs font-medium text-brand-700">
-                          (Sən)
-                        </span>
-                      )}
-                    </th>
-                    <td className="px-4 py-3 text-center tabular-nums">
-                      {student.answered}
-                    </td>
-                    <td className="px-4 py-3 text-center font-bold text-success-600 tabular-nums">
-                      {student.correct}
-                    </td>
-                    <td className="px-4 py-3 text-center font-bold text-danger-600 tabular-nums">
-                      {student.incorrect}
-                    </td>
+          <div className="h-full overflow-hidden rounded-2xl border border-border bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-surface-muted text-xs font-bold uppercase tracking-wide text-muted shadow-sm">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Yer</th>
+                    <th scope="col" className="px-4 py-3">Şagird</th>
+                    <th scope="col" className="px-4 py-3 text-center">İşlənib</th>
+                    <th scope="col" className="px-4 py-3 text-center">Düz</th>
+                    <th scope="col" className="px-4 py-3 text-center">Səhv</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {leaderboard.map((student) => (
+                    <tr
+                      key={student.studentId}
+                      className={
+                        student.isCurrentStudent
+                          ? "bg-brand-50 font-bold text-brand-900"
+                          : "text-foreground"
+                      }
+                    >
+                      <td className="px-4 py-3 tabular-nums">
+                        {student.rank <= 3
+                          ? ["🥇", "🥈", "🥉"][student.rank - 1]
+                          : student.rank}
+                      </td>
+                      <th scope="row" className="px-4 py-3 text-left font-semibold">
+                        {student.name}
+                        {student.isCurrentStudent && (
+                          <span className="ml-2 text-xs font-medium text-brand-700">
+                            (Sən)
+                          </span>
+                        )}
+                      </th>
+                      <td className="px-4 py-3 text-center tabular-nums">
+                        {student.answered}
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-success-600 tabular-nums">
+                        {student.correct}
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-danger-600 tabular-nums">
+                        {student.incorrect}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-muted">
