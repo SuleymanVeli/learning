@@ -7,6 +7,7 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Modal } from "@/src/components/ui/Modal";
+import { Pagination } from "@/src/components/ui/Pagination";
 import { Select } from "@/src/components/ui/Select";
 import { Textarea } from "@/src/components/ui/Textarea";
 import { TaskContentEditor } from "@/src/components/admin/TaskContentEditor";
@@ -42,6 +43,7 @@ interface QuizItem {
 
 type TaskType = "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
 type TaskModal = { type: "create" } | { type: "edit"; task: TaskItem };
+const TASKS_PER_PAGE = 10;
 
 export function TaskManagement() {
   return (
@@ -58,6 +60,7 @@ function TaskManagementContent({ name }: { name: string }) {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedQuizFilter, setSelectedQuizFilter] = useState("all");
+  const [taskPage, setTaskPage] = useState(1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<TaskModal | null>(null);
@@ -116,6 +119,15 @@ function TaskManagementContent({ name }: { name: string }) {
         ))
     );
   });
+  const taskPageCount = Math.max(
+    1,
+    Math.ceil(filteredTasks.length / TASKS_PER_PAGE),
+  );
+  const currentTaskPage = Math.min(taskPage, taskPageCount);
+  const paginatedTasks = filteredTasks.slice(
+    (currentTaskPage - 1) * TASKS_PER_PAGE,
+    currentTaskPage * TASKS_PER_PAGE,
+  );
 
   async function saveTask(
     event: FormEvent<HTMLFormElement>,
@@ -241,6 +253,7 @@ function TaskManagementContent({ name }: { name: string }) {
         },
       );
       setModal(null);
+      if (!isEdit) setTaskPage(1);
       setNotice(isEdit ? "Tapşırıq yeniləndi." : "Tapşırıq quizə əlavə olundu.");
       await load();
     } catch (cause) {
@@ -331,9 +344,10 @@ function TaskManagementContent({ name }: { name: string }) {
             <Select
               label="Quiz üzrə süzgəc"
               value={selectedQuizFilter}
-              onChange={(event) =>
-                setSelectedQuizFilter(event.currentTarget.value)
-              }
+              onChange={(event) => {
+                setSelectedQuizFilter(event.currentTarget.value);
+                setTaskPage(1);
+              }}
             >
               <option value="all">Bütün quizlər</option>
               <option value="unassigned">Heç bir quizdə yoxdur</option>
@@ -347,7 +361,10 @@ function TaskManagementContent({ name }: { name: string }) {
               aria-label="Tapşırıqlarda axtar"
               placeholder="Ad, sual və ya quizlə axtar"
               value={search}
-              onChange={(event) => setSearch(event.currentTarget.value)}
+              onChange={(event) => {
+                setSearch(event.currentTarget.value);
+                setTaskPage(1);
+              }}
             />
           </div>
         </div>
@@ -357,7 +374,7 @@ function TaskManagementContent({ name }: { name: string }) {
           </p>
         ) : filteredTasks.length ? (
           <div className="divide-y divide-border">
-            {filteredTasks.map((task) => (
+            {paginatedTasks.map((task) => (
               <article
                 key={task._id}
                 className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between"
@@ -441,6 +458,14 @@ function TaskManagementContent({ name }: { name: string }) {
                 : "Yeni tapşırıq yaratmaq üçün yuxarıdakı düymədən istifadə et."}
             </p>
           </div>
+        )}
+        {!loading && filteredTasks.length > 0 && (
+          <Pagination
+            page={currentTaskPage}
+            pageSize={TASKS_PER_PAGE}
+            totalItems={filteredTasks.length}
+            onPageChange={setTaskPage}
+          />
         )}
       </Card>
 

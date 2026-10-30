@@ -8,12 +8,14 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Modal } from "@/src/components/ui/Modal";
+import { Pagination } from "@/src/components/ui/Pagination";
 import { Select } from "@/src/components/ui/Select";
 import { requestJson } from "@/src/lib/client-api";
 
 interface Group {
   _id: string;
   name: string;
+  archivedAt?: string | null;
 }
 
 interface Quiz {
@@ -35,6 +37,7 @@ interface Lesson {
 }
 
 type Filter = "all" | Lesson["status"] | "ended";
+const LESSONS_PER_PAGE = 10;
 
 export function LiveLessonManagement() {
   return (
@@ -47,8 +50,11 @@ export function LiveLessonManagement() {
 function LiveLessonContent({ name }: { name: string }) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [archivedGroups, setArchivedGroups] = useState<Group[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState("all");
+  const [lessonPage, setLessonPage] = useState(1);
   const [editing, setEditing] = useState<Lesson | null | "new">(null);
   const [deleting, setDeleting] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,27 +63,33 @@ function LiveLessonContent({ name }: { name: string }) {
   const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
-    const [lessonResult, groupResult, quizResult] = await Promise.all([
-      requestJson<{ lessons: Lesson[] }>("/api/live-lessons"),
-      requestJson<{ groups: Group[] }>("/api/groups"),
-      requestJson<{ quizzes: Quiz[] }>("/api/quizzes"),
-    ]);
+    const [lessonResult, groupResult, archivedGroupResult, quizResult] =
+      await Promise.all([
+        requestJson<{ lessons: Lesson[] }>("/api/live-lessons"),
+        requestJson<{ groups: Group[] }>("/api/groups"),
+        requestJson<{ groups: Group[] }>("/api/groups?archived=true"),
+        requestJson<{ quizzes: Quiz[] }>("/api/quizzes"),
+      ]);
     setLessons(lessonResult.lessons);
     setGroups(groupResult.groups);
+    setArchivedGroups(archivedGroupResult.groups);
     setQuizzes(quizResult.quizzes);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const fetchLessons = async () => {
-      const [lessonResult, groupResult, quizResult] = await Promise.all([
-        requestJson<{ lessons: Lesson[] }>("/api/live-lessons"),
-        requestJson<{ groups: Group[] }>("/api/groups"),
-        requestJson<{ quizzes: Quiz[] }>("/api/quizzes"),
-      ]);
+      const [lessonResult, groupResult, archivedGroupResult, quizResult] =
+        await Promise.all([
+          requestJson<{ lessons: Lesson[] }>("/api/live-lessons"),
+          requestJson<{ groups: Group[] }>("/api/groups"),
+          requestJson<{ groups: Group[] }>("/api/groups?archived=true"),
+          requestJson<{ quizzes: Quiz[] }>("/api/quizzes"),
+        ]);
       if (cancelled) return;
       setLessons(lessonResult.lessons);
       setGroups(groupResult.groups);
+      setArchivedGroups(archivedGroupResult.groups);
       setQuizzes(quizResult.quizzes);
     };
     void fetchLessons()
@@ -122,6 +134,11 @@ function LiveLessonContent({ name }: { name: string }) {
           body: JSON.stringify({ action: "edit", ...payload }),
         });
       }
+      if (editing === "new") {
+        setSelectedGroupFilter("all");
+        setFilter("all");
+        setLessonPage(1);
+      }
       setEditing(null);
       setNotice("Canlı dərs yadda saxlanıldı.");
       await load();
@@ -165,10 +182,27 @@ function LiveLessonContent({ name }: { name: string }) {
   }
 
   const visible = lessons.filter((lesson) => {
-    if (filter === "all") return true;
-    if (filter === "ended") return lesson.status === "ended";
-    return lesson.status === filter;
+    const matchesStatus =
+      filter === "all" ||
+      (filter === "ended"
+        ? lesson.status === "ended"
+        : lesson.status === filter);
+    const lessonGroupId =
+      typeof lesson.groupId === "string" ? lesson.groupId : lesson.groupId._id;
+    return (
+      matchesStatus &&
+      (selectedGroupFilter === "all" || lessonGroupId === selectedGroupFilter)
+    );
   });
+  const lessonPageCount = Math.max(
+    1,
+    Math.ceil(visible.length / LESSONS_PER_PAGE),
+  );
+  const currentLessonPage = Math.min(lessonPage, lessonPageCount);
+  const paginatedLessons = visible.slice(
+    (currentLessonPage - 1) * LESSONS_PER_PAGE,
+    currentLessonPage * LESSONS_PER_PAGE,
+  );
 
   return (
     <DashboardShell name={name} role="admin">
@@ -198,33 +232,57 @@ function LiveLessonContent({ name }: { name: string }) {
             key={value}
             size="sm"
             variant={filter === value ? "primary" : "outline"}
-            onClick={() => setFilter(value)}
+            onClick={() => {
+              setFilter(value);
+              setLessonPage(1);
+            }}
           >
             {label} {value === "ended" ? `(${lessons.filter((item) => item.status === "ended").length})` : ""}
           </Button>
         ))}
       </div>
+      <div className="mb-5">
+        <Select
+          label="Qrupa görə süzgəc"
+          className="sm:max-w-xs"
+          value={selectedGroupFilter}
+          onChange={(event) => {
+            setSelectedGroupFilter(event.currentTarget.value);
+            setLessonPage(1);
+          }}
+        >
+          <option value="all">Bütün qruplar</option>
+          {[...groups, ...archivedGroups].map((group) => (
+            <option key={group._id} value={group._id}>
+              {group.name}{group.archivedAt ? " (arxivdə)" : ""}
+            </option>
+          ))}
+        </Select>
+      </div>
       {loading ? (
         <p className="py-16 text-center text-muted">Dərslər yüklənir...</p>
       ) : visible.length ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {visible.map((lesson) => (
-            <Card key={lesson._id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
+        <Card className="divide-y divide-border p-0">
+          {paginatedLessons.map((lesson) => (
+            <article
+              key={lesson._id}
+              className="flex flex-col gap-4 p-5 transition hover:bg-surface-muted/50 lg:flex-row lg:items-center lg:justify-between"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm text-muted">
                     {typeof lesson.groupId === "string" ? "Qrup" : lesson.groupId.name}
                   </p>
-                  <h2 className="mt-1 text-lg font-bold">{lesson.title}</h2>
+                  <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold">
+                    {lesson.status === "draft" ? "Hazır" : lesson.status === "live" ? "Canlı" : "Bitib"}
+                  </span>
                 </div>
-                <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold">
-                  {lesson.status === "draft" ? "Hazır" : lesson.status === "live" ? "Canlı" : "Bitib"}
-                </span>
+                <h2 className="mt-1 text-lg font-bold">{lesson.title}</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {lesson.taskIds.length} sual · Tab {lesson.activeTaskIndex + 1} · {Math.round(lesson.durationSeconds / 60)} dəq.
+                </p>
               </div>
-              <p className="mt-3 text-sm text-muted">
-                {lesson.taskIds.length} sual · Tab {lesson.activeTaskIndex + 1} · {Math.round(lesson.durationSeconds / 60)} dəq.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 lg:justify-end">
                 {lesson.status === "draft" && (
                   <>
                     <Button size="sm" onClick={() => void action(lesson, "start")}>Başla</Button>
@@ -250,12 +308,18 @@ function LiveLessonContent({ name }: { name: string }) {
                   <Button size="sm" variant="danger" onClick={() => setDeleting(lesson)}>Sil</Button>
                 )}
               </div>
-            </Card>
+            </article>
           ))}
-        </div>
+          <Pagination
+            page={currentLessonPage}
+            pageSize={LESSONS_PER_PAGE}
+            totalItems={visible.length}
+            onPageChange={setLessonPage}
+          />
+        </Card>
       ) : (
         <Card className="py-12 text-center text-sm text-muted">
-          Bu süzgəcdə canlı хичээл алга байна.
+          Bu süzgəcdə canlı dərs tapılmadı.
         </Card>
       )}
 

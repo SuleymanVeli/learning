@@ -9,6 +9,7 @@ import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Select } from "@/src/components/ui/Select";
 import { Modal } from "@/src/components/ui/Modal";
+import { Pagination } from "@/src/components/ui/Pagination";
 import {
   ScoreLeaderboard,
   type ScoreLeaderboardEntry,
@@ -18,6 +19,7 @@ import { requestJson } from "@/src/lib/client-api";
 interface GroupSummary {
   _id: string;
   name: string;
+  archivedAt?: string | null;
 }
 
 interface QuizSummary {
@@ -30,26 +32,36 @@ interface AssignmentSummary {
   _id: string;
   title: string;
   dueAt?: string;
-  groupId: { name: string } | string;
+  groupId: { _id: string; name: string } | string;
   taskIds: unknown[];
 }
 
 interface ManagementData {
   groups: GroupSummary[];
+  archivedGroups: GroupSummary[];
   quizzes: QuizSummary[];
   assignments: AssignmentSummary[];
 }
 
-const emptyData: ManagementData = { groups: [], quizzes: [], assignments: [] };
+const emptyData: ManagementData = {
+  groups: [],
+  archivedGroups: [],
+  quizzes: [],
+  assignments: [],
+};
+const ASSIGNMENTS_PER_PAGE = 10;
 
 async function fetchManagementData(): Promise<ManagementData> {
-  const [groupsResult, quizzesResult, assignmentsResult] = await Promise.all([
-    requestJson<{ groups: GroupSummary[] }>("/api/groups"),
-    requestJson<{ quizzes: QuizSummary[] }>("/api/quizzes"),
-    requestJson<{ assignments: AssignmentSummary[] }>("/api/assignments"),
-  ]);
+  const [groupsResult, archivedGroupsResult, quizzesResult, assignmentsResult] =
+    await Promise.all([
+      requestJson<{ groups: GroupSummary[] }>("/api/groups"),
+      requestJson<{ groups: GroupSummary[] }>("/api/groups?archived=true"),
+      requestJson<{ quizzes: QuizSummary[] }>("/api/quizzes"),
+      requestJson<{ assignments: AssignmentSummary[] }>("/api/assignments"),
+    ]);
   return {
     groups: groupsResult.groups,
+    archivedGroups: archivedGroupsResult.groups,
     quizzes: quizzesResult.quizzes,
     assignments: assignmentsResult.assignments,
   };
@@ -74,6 +86,9 @@ function AdminHomeworkContent({ name }: { name: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [deleting, setDeleting] = useState<AssignmentSummary | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState("all");
+  const [assignmentPage, setAssignmentPage] = useState(1);
 
   const load = useCallback(async () => {
     setData(await fetchManagementData());
@@ -115,6 +130,9 @@ function AdminHomeworkContent({ name }: { name: string }) {
       setTitle("");
       setDueAt("");
       setQuizIds([]);
+      setCreateModalOpen(false);
+      setSelectedGroupFilter("all");
+      setAssignmentPage(1);
       setNotice("Ev tapşırığı dərc olundu.");
       await load();
     } catch (cause) {
@@ -150,21 +168,57 @@ function AdminHomeworkContent({ name }: { name: string }) {
     }
   }
 
+  const filteredAssignments =
+    selectedGroupFilter === "all"
+      ? data.assignments
+      : data.assignments.filter(
+          (assignment) =>
+            typeof assignment.groupId !== "string" &&
+            assignment.groupId._id === selectedGroupFilter,
+        );
+  const assignmentPageCount = Math.max(
+    1,
+    Math.ceil(filteredAssignments.length / ASSIGNMENTS_PER_PAGE),
+  );
+  const currentAssignmentPage = Math.min(assignmentPage, assignmentPageCount);
+  const paginatedAssignments = filteredAssignments.slice(
+    (currentAssignmentPage - 1) * ASSIGNMENTS_PER_PAGE,
+    currentAssignmentPage * ASSIGNMENTS_PER_PAGE,
+  );
+
   return (
     <DashboardShell name={name} role="admin">
-      <div className="mb-7">
-        <p className="text-sm font-semibold text-brand-700">İdarəetmə</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">Ev tapşırıqları</h1>
-        <p className="mt-2 text-muted">
-          Tapşırıq dərc et, hər sualın cavablarına və nəticə sıralamasına bax.
-        </p>
+      <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-sm font-semibold text-brand-700">İdarəetmə</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">Ev tapşırıqları</h1>
+          <p className="mt-2 text-muted">
+            Tapşırıq dərc et, hər sualın cavablarına və nəticə sıralamasına bax.
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => {
+            setError("");
+            setCreateModalOpen(true);
+          }}
+        >
+          <span aria-hidden="true" className="text-lg leading-none">+</span>
+          Yeni ev tapşırığı
+        </Button>
       </div>
       {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
       {notice && <p role="status" className="mb-4 rounded-xl bg-success-50 p-3 text-sm text-success-600">{notice}</p>}
 
-      <Card>
-        <h2 className="text-xl font-bold">Yeni ev tapşırığı</h2>
-        <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={createAssignment}>
+      <Modal
+        open={createModalOpen}
+        title="Yeni ev tapşırığı"
+        description="Qrup və quizləri seçərək ev tapşırığını dərc et."
+        onClose={() => {
+          if (!saving) setCreateModalOpen(false);
+        }}
+      >
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={createAssignment}>
           <Input
             label="Tapşırığın adı"
             value={title}
@@ -180,8 +234,10 @@ function AdminHomeworkContent({ name }: { name: string }) {
             disabled={!data.groups.length}
           >
             <option value="">Qrup seç</option>
-            {data.groups.map((group) => (
-              <option key={group._id} value={group._id}>{group.name}</option>
+            {[...data.groups, ...data.archivedGroups].map((group) => (
+              <option key={group._id} value={group._id}>
+                {group.name}{group.archivedAt ? " (arxivdə)" : ""}
+              </option>
             ))}
           </Select>
           <Input
@@ -228,30 +284,53 @@ function AdminHomeworkContent({ name }: { name: string }) {
             {saving ? "Dərc olunur..." : "Ev tapşırığını dərc et"}
           </Button>
         </form>
-      </Card>
+      </Modal>
 
       <section className="mt-8">
-        <h2 className="mb-4 text-xl font-bold">Dərc edilmiş tapşırıqlar</h2>
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="text-xl font-bold">Dərc edilmiş tapşırıqlar</h2>
+          <Select
+            label="Qrupa görə süzgəc"
+            className="sm:max-w-xs"
+            value={selectedGroupFilter}
+            onChange={(event) => {
+              setSelectedGroupFilter(event.currentTarget.value);
+              setAssignmentPage(1);
+            }}
+          >
+            <option value="all">Bütün qruplar</option>
+            {[...data.groups, ...data.archivedGroups].map((group) => (
+              <option key={group._id} value={group._id}>
+                {group.name}{group.archivedAt ? " (arxivdə)" : ""}
+              </option>
+            ))}
+          </Select>
+        </div>
         {loading ? (
           <p className="py-10 text-center text-muted">Siyahı yüklənir...</p>
-        ) : data.assignments.length ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {data.assignments.map((assignment) => (
-              <Card key={assignment._id}>
-                <p className="text-sm text-brand-700">
-                  {typeof assignment.groupId === "string" ? "Qrup" : assignment.groupId.name}
-                </p>
-                <h3 className="mt-1 text-lg font-bold">{assignment.title}</h3>
-                <p className="mt-2 text-sm text-muted">
-                  {assignment.taskIds.length} sual
-                  {assignment.dueAt
-                    ? ` · Son tarix ${new Date(assignment.dueAt).toLocaleString("az-AZ")}`
-                    : " · Son tarix təyin edilməyib"}
-                </p>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
+        ) : filteredAssignments.length ? (
+          <Card className="divide-y divide-border p-0">
+            {paginatedAssignments.map((assignment) => (
+              <article
+                key={assignment._id}
+                className="flex flex-col gap-4 p-5 transition hover:bg-surface-muted/50 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-brand-700">
+                    {typeof assignment.groupId === "string" ? "Qrup" : assignment.groupId.name}
+                  </p>
+                  <h3 className="mt-1 truncate text-lg font-bold">{assignment.title}</h3>
+                  <p className="mt-1 text-sm text-muted">
+                    {assignment.taskIds.length} sual
+                    {assignment.dueAt
+                      ? ` · Son tarix ${new Date(assignment.dueAt).toLocaleString("az-AZ")}`
+                      : " · Son tarix təyin edilməyib"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <Link
                     href={`/admin/assignments/${assignment._id}`}
-                    className="inline-flex rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white"
+                    className="inline-flex items-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white"
                   >
                     Nəticələrə bax
                   </Link>
@@ -278,11 +357,21 @@ function AdminHomeworkContent({ name }: { name: string }) {
                     Sil
                   </Button>
                 </div>
-              </Card>
+              </article>
             ))}
-          </div>
+            <Pagination
+              page={currentAssignmentPage}
+              pageSize={ASSIGNMENTS_PER_PAGE}
+              totalItems={filteredAssignments.length}
+              onPageChange={setAssignmentPage}
+            />
+          </Card>
         ) : (
-          <Card className="py-10 text-center text-muted">Hələ ev tapşırığı dərc edilməyib.</Card>
+          <Card className="py-10 text-center text-muted">
+            {selectedGroupFilter === "all"
+              ? "Hələ ev tapşırığı dərc edilməyib."
+              : "Bu qrup üçün ev tapşırığı tapılmadı."}
+          </Card>
         )}
       </section>
       <Modal
