@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     .select("name accessCode inviteEnabled createdAt archivedAt studentIds")
     .sort({ createdAt: -1 })
     .lean();
+
   return Response.json({
     groups: groups.map(({ studentIds, ...group }) => ({
       ...group,

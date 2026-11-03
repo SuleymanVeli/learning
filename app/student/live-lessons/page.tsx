@@ -5,11 +5,18 @@ import { useEffect, useState } from "react";
 import { DashboardShell } from "@/src/components/app/DashboardShell";
 import { RoleGate } from "@/src/components/app/RoleGate";
 import { Card } from "@/src/components/ui/Card";
+import { StudentGroupTabs } from "@/src/components/student/StudentGroupTabs";
 import { requestJson } from "@/src/lib/client-api";
+
+interface StudentGroup {
+  _id: string;
+  name: string;
+}
 
 interface LessonSummary {
   id: string;
   title: string;
+  groupId: string;
   groupName?: string;
   taskIndex: number;
   taskCount: number;
@@ -37,14 +44,25 @@ function StudentLiveLessonsContent({
   avatar: string;
 }) {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
+  const [groups, setGroups] = useState<StudentGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [error, setError] = useState("");
+  const visibleLessons = selectedGroupId
+    ? lessons.filter((lesson) => lesson.groupId === selectedGroupId)
+    : lessons;
 
   useEffect(() => {
     let cancelled = false;
     const refresh = () =>
-      requestJson<{ live: LessonSummary | null }>("/api/student/dashboard")
-        .then(({ live }) => {
-          if (!cancelled) setLessons(live ? [live] : []);
+      requestJson<{
+        groups: StudentGroup[];
+        lessons: LessonSummary[];
+      }>("/api/student/live-lessons")
+        .then((result) => {
+          if (cancelled) return;
+          setGroups(result.groups);
+          setLessons(result.lessons);
+          setError("");
         })
         .catch((cause: unknown) => {
           if (!cancelled)
@@ -67,9 +85,15 @@ function StudentLiveLessonsContent({
         <h1 className="mt-1 text-3xl font-black">Canlı dərslər</h1>
       </div>
       {error && <p role="alert" className="mb-4 text-danger-600">{error}</p>}
-      {lessons.length ? (
+      <StudentGroupTabs
+        groups={groups}
+        selectedGroupId={selectedGroupId}
+        onSelect={setSelectedGroupId}
+        label="Canlı dərsləri qrupa görə süzgəclə"
+      />
+      {visibleLessons.length ? (
         <div className="student-homework-list flex flex-col gap-3">
-          {lessons.map((lesson) => (
+          {visibleLessons.map((lesson) => (
             <Link
               key={lesson.id}
               href={`/student/live-lessons/${lesson.id}`}
@@ -100,7 +124,10 @@ function StudentLiveLessonsContent({
         </div>
       ) : (
         <Card className="student-content-card text-center text-slate-500">
-          Hazırda aktiv canlı dərs yoxdur. Səhifə avtomatik yenilənir.
+          {selectedGroupId
+            ? "Bu qrupda hazırda aktiv canlı dərs yoxdur."
+            : "Hazırda aktiv canlı dərs yoxdur."}{" "}
+          Səhifə avtomatik yenilənir.
         </Card>
       )}
     </DashboardShell>

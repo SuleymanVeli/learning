@@ -9,6 +9,7 @@ import { Input } from "@/src/components/ui/Input";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
 import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
 import { ScoreLeaderboard } from "@/src/components/student/ScoreLeaderboard";
+import { StudentGroupTabs } from "@/src/components/student/StudentGroupTabs";
 import { requestJson } from "@/src/lib/client-api";
 import type { TaskContentBlock, TaskOption } from "@/src/models/Task";
 
@@ -16,9 +17,14 @@ interface AssignmentSummary {
   _id: string;
   title: string;
   dueAt?: string;
-  groupId: { name: string } | string;
+  groupId: { _id: string; name: string } | string;
   taskCount: number;
   submittedCount: number;
+}
+
+interface StudentGroup {
+  _id: string;
+  name: string;
 }
 
 interface HomeworkTask {
@@ -262,6 +268,8 @@ function StudentHomeworkContent({
   avatar: string;
 }) {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
+  const [groups, setGroups] = useState<StudentGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [details, setDetails] = useState<HomeworkDetails | null>(null);
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
@@ -274,10 +282,14 @@ function StudentHomeworkContent({
 
   useEffect(() => {
     let cancelled = false;
-    requestJson<{ assignments: AssignmentSummary[] }>("/api/student/dashboard")
-      .then(({ assignments: rows }) => {
+    requestJson<{
+      assignments: AssignmentSummary[];
+      groups: StudentGroup[];
+    }>("/api/student/dashboard")
+      .then(({ assignments: rows, groups: studentGroups }) => {
         if (cancelled) return;
         setAssignments(rows);
+        setGroups(studentGroups);
       })
       .catch((cause: unknown) => {
         if (!cancelled)
@@ -315,6 +327,13 @@ function StudentHomeworkContent({
   }, [selectedId]);
 
   const task = details?.tasks[selectedTaskIndex];
+  const visibleAssignments = selectedGroupId
+    ? assignments.filter(
+        (assignment) =>
+          typeof assignment.groupId !== "string" &&
+          assignment.groupId._id === selectedGroupId,
+      )
+    : assignments;
   const answerKey = task ? `${details?.assignment.id}:${task._id}` : "";
   const answer = answerDrafts[answerKey] ?? "";
   const detailsLoading =
@@ -390,7 +409,7 @@ function StudentHomeworkContent({
             <h1 className="mt-1 text-3xl font-black sm:text-4xl">Ev tapşırıqları</h1>
           </div>
           <span className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-violet-700 shadow-lg shadow-violet-100">
-            {assignments.length} tapşırıq
+            {visibleAssignments.length} tapşırıq
           </span>
         </div>
       ) : (
@@ -447,54 +466,81 @@ function StudentHomeworkContent({
       {!selectedId ? (
         loading ? (
           <p className="py-12 text-center text-muted">Tapşırıqlar yüklənir...</p>
-        ) : assignments.length ? (
-          <div className="student-homework-list flex flex-col gap-3">
-            {assignments.map((assignment, index) => {
-              const state = assignmentState(assignment);
-              const theme = assignmentThemes[index % assignmentThemes.length];
-              const progress = assignment.taskCount
-                ? Math.min(100, (assignment.submittedCount / assignment.taskCount) * 100)
-                : 0;
-              return (
-                <button
-                  key={assignment._id}
-                  type="button"
-                  onClick={() => {
-                    setError("");
-                    setDetails(null);
-                    setSelectedTaskIndex(0);
-                    setSelectedId(assignment._id);
-                  }}
-                  className={`student-homework-list-row ${theme.className} group flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 sm:gap-4 sm:px-5`}
-                >
-                  <span className="student-homework-list-icon" aria-hidden="true">{theme.illustration}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-base font-black text-slate-800 sm:text-lg">
-                      {assignment.title}
-                    </span>
-                    <span className="mt-1 block text-xs font-semibold text-slate-500">
-                      {assignment.submittedCount} / {assignment.taskCount} sual
-                      {assignment.dueAt
-                        ? ` · Son tarix ${new Date(assignment.dueAt).toLocaleDateString("az-AZ")}`
-                        : ""}
-                    </span>
-                    <span className="student-homework-list-progress mt-2 block h-1.5 overflow-hidden rounded-full">
-                      <span
-                        className={`block h-full rounded-full transition-all duration-300 ${state.progress}`}
-                        style={{ width: `${progress}%` }}
-                      />
-                    </span>
-                  </span>
-                  <span className={`student-homework-status shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${state.badge}`}>
-                    <span aria-hidden="true">{state.icon} </span>
-                    {state.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         ) : (
-          <Card className="student-content-card text-center text-muted">Hazırda ev tapşırığı yoxdur.</Card>
+          <>
+            <StudentGroupTabs
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              onSelect={setSelectedGroupId}
+              label="Ev tapşırıqlarını qrupa görə süzgəclə"
+            />
+            {visibleAssignments.length ? (
+              <div className="student-homework-list flex flex-col gap-3">
+                {visibleAssignments.map((assignment, index) => {
+                  const state = assignmentState(assignment);
+                  const theme =
+                    assignmentThemes[index % assignmentThemes.length];
+                  const progress = assignment.taskCount
+                    ? Math.min(
+                        100,
+                        (assignment.submittedCount / assignment.taskCount) *
+                          100,
+                      )
+                    : 0;
+                  return (
+                    <button
+                      key={assignment._id}
+                      type="button"
+                      onClick={() => {
+                        setError("");
+                        setDetails(null);
+                        setSelectedTaskIndex(0);
+                        setSelectedId(assignment._id);
+                      }}
+                      className={`student-homework-list-row ${theme.className} group flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 sm:gap-4 sm:px-5`}
+                    >
+                      <span
+                        className="student-homework-list-icon"
+                        aria-hidden="true"
+                      >
+                        {theme.illustration}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-base font-black text-slate-800 sm:text-lg">
+                          {assignment.title}
+                        </span>
+                        <span className="mt-1 block text-xs font-semibold text-slate-500">
+                          {assignment.submittedCount} / {assignment.taskCount}{" "}
+                          sual
+                          {assignment.dueAt
+                            ? ` · Son tarix ${new Date(assignment.dueAt).toLocaleDateString("az-AZ")}`
+                            : ""}
+                        </span>
+                        <span className="student-homework-list-progress mt-2 block h-1.5 overflow-hidden rounded-full">
+                          <span
+                            className={`block h-full rounded-full transition-all duration-300 ${state.progress}`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </span>
+                      </span>
+                      <span
+                        className={`student-homework-status shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${state.badge}`}
+                      >
+                        <span aria-hidden="true">{state.icon} </span>
+                        {state.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card className="student-content-card text-center text-muted">
+                {selectedGroupId
+                  ? "Bu qrupda ev tapşırığı yoxdur."
+                  : "Hazırda ev tapşırığı yoxdur."}
+              </Card>
+            )}
+          </>
         )
       ) : detailsLoading ? (
         <p className="py-12 text-center text-muted">Tapşırıq yüklənir...</p>

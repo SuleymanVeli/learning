@@ -7,7 +7,16 @@ import { Button } from "@/src/components/ui/Button";
 import { Card } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { Modal } from "@/src/components/ui/Modal";
+import { Select } from "@/src/components/ui/Select";
 import { requestJson } from "@/src/lib/client-api";
+
+interface GroupStudent {
+  _id: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  approvalStatus: "pending" | "approved";
+}
 
 interface GroupItem {
   _id: string;
@@ -18,12 +27,21 @@ interface GroupItem {
   createdAt: string;
 }
 
+interface CandidateStudent {
+  _id: string;
+  name: string;
+  email: string;
+  groupIds: string[];
+}
+
 type ModalAction =
   | { type: "create" }
   | { type: "edit"; group: GroupItem }
   | { type: "archive"; group: GroupItem }
   | { type: "restore"; group: GroupItem }
-  | { type: "invite"; group: GroupItem };
+  | { type: "invite"; group: GroupItem }
+  | { type: "add-students"; group: GroupItem }
+  | { type: "remove-student"; group: GroupItem; student: GroupStudent };
 
 export function GroupManagement() {
   return (
@@ -39,6 +57,17 @@ function GroupManagementContent({ name }: { name: string }) {
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<ModalAction | null>(null);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [groupStudents, setGroupStudents] = useState<
+    Record<string, GroupStudent[]>
+  >({});
+  const [loadingStudentsGroupId, setLoadingStudentsGroupId] = useState<
+    string | null
+  >(null);
+  const [candidateStudents, setCandidateStudents] = useState<CandidateStudent[]>([]);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [sourceGroupId, setSourceGroupId] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -91,6 +120,25 @@ function GroupManagementContent({ name }: { name: string }) {
         group.accessCode.toLocaleLowerCase().includes(query),
     );
   }, [activeGroups, archivedGroups, search, showArchived]);
+  const addStudentsTargetId =
+    modal?.type === "add-students" ? modal.group._id : "";
+  const availableSourceGroups = addStudentsTargetId
+    ? activeGroups.filter(
+        (sourceGroup) =>
+          sourceGroup._id !== addStudentsTargetId &&
+          candidateStudents.some(
+            (student) =>
+              student.groupIds.includes(sourceGroup._id) &&
+              !student.groupIds.includes(addStudentsTargetId),
+          ),
+      )
+    : [];
+  const studentsToAdd = candidateStudents.filter(
+    (student) =>
+      sourceGroupId &&
+      student.groupIds.includes(sourceGroupId) &&
+      !student.groupIds.includes(addStudentsTargetId),
+  );
 
   async function submitGroup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -132,6 +180,171 @@ function GroupManagementContent({ name }: { name: string }) {
     setError("");
     setNotice("");
     setModal(action);
+  }
+
+  async function openAddStudents(group: GroupItem) {
+    openModal({ type: "add-students", group });
+    setCandidateStudents([]);
+    setSourceGroupId("");
+    setSelectedStudentIds([]);
+    setCandidateLoading(true);
+    try {
+      const result = await requestJson<{ students: CandidateStudent[] }>(
+        "/api/students",
+      );
+      setCandidateStudents(result.students);
+      const firstSourceGroup = activeGroups.find(
+        (sourceGroup) =>
+          sourceGroup._id !== group._id &&
+          result.students.some(
+            (student) =>
+              student.groupIds.includes(sourceGroup._id) &&
+              !student.groupIds.includes(group._id),
+          ),
+      );
+      setSourceGroupId(firstSourceGroup?._id ?? "");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Şagirdləri yükləmək mümkün olmadı.",
+      );
+    } finally {
+      setCandidateLoading(false);
+    }
+  }
+
+  async function addStudents() {
+    if (modal?.type !== "add-students") return;
+    if (!sourceGroupId || selectedStudentIds.length === 0) {
+      setError("Mənbə qrupu və ən azı bir şagird seçin.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await requestJson<{ addedCount: number }>(
+        `/api/groups/${modal.group._id}/students`,
+        {
+          method: "POST",
+          body: JSON.stringify({ sourceGroupId, studentIds: selectedStudentIds }),
+        },
+      );
+      setModal(null);
+      setNotice(
+        `${result.addedCount} şagird “${modal.group.name}” qrupuna əlavə edildi.`,
+      );
+      setGroupStudents({});
+      await loadGroups();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Şagirdləri qrupa əlavə etmək olmadı.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleGroupStudents(group: GroupItem) {
+    if (expandedGroupId === group._id) {
+      setExpandedGroupId(null);
+      return;
+    }
+
+    setExpandedGroupId(group._id);
+    if (
+      groupStudents[group._id] ||
+      loadingStudentsGroupId === group._id
+    ) {
+      return;
+    }
+
+    setLoadingStudentsGroupId(group._id);
+    setError("");
+    try {
+      const result = await requestJson<{ students: GroupStudent[] }>(
+        `/api/groups/${group._id}/students`,
+      );
+      setGroupStudents((current) => ({
+        ...current,
+        [group._id]: result.students,
+      }));
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Qrupdakı şagirdləri yükləmək mümkün olmadı.",
+      );
+    } finally {
+      setLoadingStudentsGroupId(null);
+    }
+  }
+
+  async function removeStudent(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    if (modal?.type !== "remove-student") return;
+
+    const confirmEmail = String(
+      new FormData(event.currentTarget).get("confirmEmail") ?? "",
+    );
+    if (
+      confirmEmail.trim().toLocaleLowerCase() !==
+      modal.student.email.toLocaleLowerCase()
+    ) {
+      setError("E-poçt ünvanı uyğun gəlmir.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await requestJson(`/api/groups/${modal.group._id}/students`, {
+        method: "DELETE",
+        body: JSON.stringify({
+          studentId: modal.student._id,
+          confirmEmail,
+        }),
+      });
+      setGroupStudents((current) => ({
+        ...current,
+        [modal.group._id]: (current[modal.group._id] ?? []).filter(
+          (student) => student._id !== modal.student._id,
+        ),
+      }));
+      setActiveGroups((current) =>
+        current.map((group) =>
+          group._id === modal.group._id
+            ? { ...group, studentCount: Math.max(0, group.studentCount - 1) }
+            : group,
+        ),
+      );
+      setArchivedGroups((current) =>
+        current.map((group) =>
+          group._id === modal.group._id
+            ? { ...group, studentCount: Math.max(0, group.studentCount - 1) }
+            : group,
+        ),
+      );
+      setNotice(
+        `${modal.student.name} “${modal.group.name}” qrupundan çıxarıldı.`,
+      );
+      setModal(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Şagirdi qrupdan çıxarmaq olmadı.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function archiveGroup(group: GroupItem) {
@@ -312,8 +525,9 @@ function GroupManagementContent({ name }: { name: string }) {
                 {visibleGroups.map((group) => (
                   <article
                     key={group._id}
-                    className="flex flex-col gap-4 px-5 py-5 transition hover:bg-surface-muted/50 sm:flex-row sm:items-center sm:justify-between"
+                    className="px-5 py-5 transition hover:bg-surface-muted/50"
                   >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-4">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-lg font-bold text-brand-700">
                         {group.name.slice(0, 1).toLocaleUpperCase()}
@@ -403,6 +617,14 @@ function GroupManagementContent({ name }: { name: string }) {
                           <>
                             <Button
                               size="sm"
+                              variant="secondary"
+                              disabled={saving}
+                              onClick={() => void openAddStudents(group)}
+                            >
+                              Şagird əlavə et
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="outline"
                               onClick={() => openModal({ type: "edit", group })}
                             >
@@ -422,6 +644,80 @@ function GroupManagementContent({ name }: { name: string }) {
                         )}
                       </div>
                     </div>
+                    </div>
+                    <div className="mt-4">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        aria-expanded={expandedGroupId === group._id}
+                        aria-controls={`group-students-${group._id}`}
+                        onClick={() => void toggleGroupStudents(group)}
+                      >
+                        {expandedGroupId === group._id
+                          ? "Şagirdləri gizlət"
+                          : `Şagirdlərə bax (${group.studentCount})`}
+                      </Button>
+                    </div>
+                    {expandedGroupId === group._id && (
+                      <div
+                        id={`group-students-${group._id}`}
+                        className="mt-4 rounded-xl border border-border bg-surface-muted/50"
+                      >
+                        {loadingStudentsGroupId === group._id ? (
+                          <p className="px-4 py-5 text-sm text-muted">
+                            Şagirdlər yüklənir...
+                          </p>
+                        ) : groupStudents[group._id] ? (
+                          groupStudents[group._id].length ? (
+                            <ul className="divide-y divide-border">
+                              {groupStudents[group._id].map((student) => (
+                                <li
+                                  key={student._id}
+                                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block font-medium">{student.name}</span>
+                                    <span className="text-sm text-muted">
+                                      {student.email}
+                                      {student.approvalStatus === "pending"
+                                        ? " · Təsdiq gözləyir"
+                                        : !student.isActive
+                                          ? " · Deaktivdir"
+                                          : ""}
+                                    </span>
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-danger-100 text-danger-600 hover:border-danger-500 hover:bg-danger-50"
+                                    disabled={saving}
+                                    onClick={() =>
+                                      openModal({
+                                        type: "remove-student",
+                                        group,
+                                        student,
+                                      })
+                                    }
+                                  >
+                                    Qrupdan çıxar
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                          <p className="px-4 py-5 text-sm text-muted">
+                            Bu qrupda hələ şagird yoxdur.
+                          </p>
+                          )
+                        ) : (
+                          <p className="px-4 py-5 text-sm text-muted">
+                            Şagird siyahısını yükləmək mümkün olmadı. Yenidən cəhd edin.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
@@ -504,6 +800,154 @@ function GroupManagementContent({ name }: { name: string }) {
                 </Button>
               </div>
             </form>
+          </Modal>
+
+          <Modal
+            open={modal?.type === "add-students"}
+            title="Şagirdləri qrupa əlavə et"
+            description={
+              modal?.type === "add-students"
+                ? `Şagirdləri başqa qrupdan “${modal.group.name}” qrupuna əlavə et.`
+                : undefined
+            }
+            onClose={() => setModal(null)}
+          >
+            {modal?.type === "add-students" && (
+              <>
+                {error && <ModalError message={error} />}
+                {candidateLoading ? (
+                  <p className="py-6 text-center text-sm text-muted">
+                    Şagirdlər yüklənir...
+                  </p>
+                ) : (
+                  <>
+                    <Select
+                      label="Şagirdlərin olduğu qrup"
+                      value={sourceGroupId}
+                      onChange={(event) => {
+                        setSourceGroupId(event.currentTarget.value);
+                        setSelectedStudentIds([]);
+                      }}
+                    >
+                      <option value="">Qrup seçin</option>
+                      {availableSourceGroups.map((sourceGroup) => (
+                        <option key={sourceGroup._id} value={sourceGroup._id}>
+                          {sourceGroup.name}
+                        </option>
+                      ))}
+                    </Select>
+                    {availableSourceGroups.length === 0 && (
+                      <p className="mt-2 text-sm text-muted">
+                        Başqa aktiv qruplarda əlavə edilə bilən şagird yoxdur.
+                      </p>
+                    )}
+                    <div className="mt-4 max-h-72 overflow-y-auto rounded-xl border border-border">
+                      {studentsToAdd.length ? (
+                        studentsToAdd.map((student) => (
+                          <label
+                            key={student._id}
+                            className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 last:border-0 hover:bg-surface-muted"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedStudentIds.includes(student._id)}
+                              onChange={(event) => {
+                                const checked = event.currentTarget.checked;
+                                setSelectedStudentIds((current) =>
+                                  checked
+                                    ? [...current, student._id]
+                                    : current.filter((id) => id !== student._id),
+                                );
+                              }}
+                              className="h-4 w-4 accent-brand-600"
+                            />
+                            <span className="min-w-0">
+                              <span className="block font-medium">{student.name}</span>
+                              <span className="block truncate text-sm text-muted">
+                                {student.email}
+                              </span>
+                            </span>
+                          </label>
+                        ))
+                      ) : (
+                        <p className="px-4 py-5 text-sm text-muted">
+                          {sourceGroupId
+                            ? "Bu qrupda əlavə edilə bilən şagird yoxdur."
+                            : "Şagirdləri görmək üçün qrup seçin."}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+                <div className="mt-6 flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setModal(null)}
+                  >
+                    Ləğv et
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={
+                      saving ||
+                      candidateLoading ||
+                      selectedStudentIds.length === 0
+                    }
+                    onClick={() => void addStudents()}
+                  >
+                    {saving
+                      ? "Əlavə edilir..."
+                      : `Seçilənləri əlavə et (${selectedStudentIds.length})`}
+                  </Button>
+                </div>
+              </>
+            )}
+          </Modal>
+
+          <Modal
+            open={modal?.type === "remove-student"}
+            title="Şagirdi qrupdan çıxar"
+            description="Şagirdin yalnız bu qrupdakı üzvlüyü silinəcək. Təsdiq üçün email ünvanını düzgün yazın."
+            onClose={() => setModal(null)}
+          >
+            {modal?.type === "remove-student" && (
+              <form
+                key={`${modal.group._id}:${modal.student._id}`}
+                className="space-y-5"
+                onSubmit={removeStudent}
+              >
+                {error && <ModalError message={error} />}
+                <div className="rounded-xl bg-surface-muted px-4 py-3">
+                  <p className="font-semibold">{modal.student.name}</p>
+                  <p className="mt-1 text-sm text-muted">{modal.group.name}</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {modal.student.email}
+                  </p>
+                </div>
+                <Input
+                  autoFocus
+                  label="Təsdiq üçün şagirdin emailini yaz"
+                  name="confirmEmail"
+                  type="email"
+                  autoComplete="off"
+                  placeholder={modal.student.email}
+                  required
+                />
+                <div className="flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setModal(null)}
+                  >
+                    Ləğv et
+                  </Button>
+                  <Button type="submit" variant="danger" disabled={saving}>
+                    {saving ? "Çıxarılır..." : "Qrupdan çıxar"}
+                  </Button>
+                </div>
+              </form>
+            )}
           </Modal>
 
           <Modal
