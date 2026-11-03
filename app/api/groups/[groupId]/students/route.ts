@@ -37,7 +37,7 @@ export async function GET(
   );
 
   return Response.json({
-    students: group.studentIds.flatMap((studentId) => {
+    students: group.studentIds.flatMap((studentId: mongoose.Types.ObjectId) => {
       const student = studentsById.get(studentId.toString());
       return student
         ? [{ ...student, approvalStatus: student.approvalStatus ?? "approved" }]
@@ -67,7 +67,7 @@ export async function POST(
     body.studentIds.length === 0 ||
     body.studentIds.length > 500 ||
     body.studentIds.some(
-      (studentId) =>
+      (studentId: unknown) =>
         typeof studentId !== "string" ||
         !mongoose.Types.ObjectId.isValid(studentId),
     )
@@ -78,7 +78,8 @@ export async function POST(
   const studentIds = [
     ...new Set(
       body.studentIds.filter(
-        (studentId): studentId is string => typeof studentId === "string",
+        (studentId: unknown): studentId is string =>
+          typeof studentId === "string",
       ),
     ),
   ];
@@ -120,7 +121,9 @@ export async function POST(
   }
 
   const alreadyInTarget = new Set(
-    targetGroup.studentIds.map((studentId) => studentId.toString()),
+    targetGroup.studentIds.map((studentId: mongoose.Types.ObjectId) =>
+      studentId.toString(),
+    ),
   );
   const addedCount = studentIds.filter(
     (studentId) => !alreadyInTarget.has(studentId),
