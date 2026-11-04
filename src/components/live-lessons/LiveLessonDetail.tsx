@@ -82,6 +82,7 @@ function LiveLessonDetailContent({
 }) {
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [submissions, setSubmissions] = useState<LiveSubmission[]>([]);
+  const [reopened, setReopened] = useState(false);
   const [submissionsRevealed, setSubmissionsRevealed] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [answer, setAnswer] = useState<string | string[]>("");
@@ -103,6 +104,7 @@ function LiveLessonDetailContent({
     const result = await requestJson<{
       submissions: LiveSubmission[];
       revealed: boolean;
+      reopened: boolean;
     }>(
       `/api/live-lessons/${lessonId}/submissions${
         role === "admin" ? `?taskIndex=${selectedTab}` : ""
@@ -110,6 +112,7 @@ function LiveLessonDetailContent({
     );
     setSubmissions(result.submissions);
     setSubmissionsRevealed(result.revealed);
+    setReopened(result.reopened);
   }, [lessonId, role, selectedTab]);
 
   useEffect(() => {
@@ -234,8 +237,7 @@ function LiveLessonDetailContent({
   const canAnswer =
     role === "student" &&
     lesson.status === "live" &&
-    secondsRemaining > 0 &&
-    !ownSubmission &&
+    (reopened || (secondsRemaining > 0 && !ownSubmission)) &&
     Boolean(activeTask);
 
   return (

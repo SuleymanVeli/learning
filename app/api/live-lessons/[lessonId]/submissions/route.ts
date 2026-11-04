@@ -41,7 +41,13 @@ export async function GET(
       ? requestedTaskIndex
       : lesson.activeTaskIndex;
   const taskId = lesson.taskIds[taskIndex];
-  if (!taskId) return Response.json({ submissions: [], revealed: false });
+  if (!taskId) {
+    return Response.json({
+      submissions: [],
+      revealed: false,
+      reopened: false,
+    });
+  }
 
   const isClosed =
     lesson.status === "ended" ||
@@ -49,6 +55,11 @@ export async function GET(
       (lesson.activeTaskIndex !== taskIndex ||
         !lesson.endsAt ||
         lesson.endsAt.getTime() <= Date.now()));
+  const reopened =
+    !isAdmin &&
+    lesson.reopenedStudentIds.some((studentId) =>
+      studentId.equals(user._id),
+    );
   const ownSubmission = isAdmin
     ? true
     : await Submission.exists({
@@ -57,7 +68,11 @@ export async function GET(
         studentId: user._id,
       });
   if (!ownSubmission) {
-    return Response.json({ submissions: [], revealed: isClosed });
+    return Response.json({
+      submissions: [],
+      revealed: isClosed,
+      reopened,
+    });
   }
 
   const submissions = await Submission.find({
@@ -91,6 +106,7 @@ export async function GET(
         : {}),
     })),
     revealed: isClosed,
+    reopened,
   });
 }
 
