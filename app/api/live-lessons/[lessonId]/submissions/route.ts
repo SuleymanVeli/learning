@@ -57,7 +57,7 @@ export async function GET(
         lesson.endsAt.getTime() <= Date.now()));
   const reopened =
     !isAdmin &&
-    lesson.reopenedStudentIds.some((studentId) =>
+    lesson.reopenedStudentIds.some((studentId: mongoose.Types.ObjectId) =>
       studentId.equals(user._id),
     );
   const ownSubmission = isAdmin
@@ -103,7 +103,7 @@ export async function GET(
             reopened:
               submission.studentId !== null &&
               typeof submission.studentId === "object" &&
-              lesson.reopenedStudentIds.some((studentId) =>
+              lesson.reopenedStudentIds.some((studentId: mongoose.Types.ObjectId) =>
                 studentId.equals(submission.studentId._id),
               ),
           }

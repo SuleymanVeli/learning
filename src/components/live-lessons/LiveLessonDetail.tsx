@@ -603,17 +603,22 @@ function LiveLessonDetailContent({
             </div>
             {submissions.length ? (
               <ol className="mt-4 space-y-2">
-                {submissions.map((submission, index) => (
-                  <li
-                    key={submission._id}
-                    className={`flex items-center gap-3 rounded-xl border p-3 ${
-                      submissionsRevealed && submission.isCorrect
-                        ? "border-success-100 bg-success-50"
-                        : submissionsRevealed
-                          ? "border-danger-100 bg-danger-50"
-                          : "border-border bg-surface"
-                    }`}
-                  >
+                {submissions.map((submission, index) => {
+                  const studentId =
+                    typeof submission.studentId === "string"
+                      ? undefined
+                      : submission.studentId._id;
+                  return (
+                    <li
+                      key={submission._id}
+                      className={`flex items-center gap-3 rounded-xl border p-3 ${
+                        submissionsRevealed && submission.isCorrect
+                          ? "border-success-100 bg-success-50"
+                          : submissionsRevealed
+                            ? "border-danger-100 bg-danger-50"
+                            : "border-border bg-surface"
+                      }`}
+                    >
                     <span className="font-bold">{index + 1}.</span>
                     {typeof submission.studentId !== "string" && (
                       <Image
@@ -650,14 +655,14 @@ function LiveLessonDetailContent({
                     </Button>
                     {lesson.status === "live" &&
                       selectedTab === lesson.activeTaskIndex &&
-                      typeof submission.studentId !== "string" && (
+                      studentId && (
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={saving || submission.reopened}
                           onClick={() =>
                             void runAction("reopen-student", {
-                              studentId: submission.studentId._id,
+                              studentId,
                             })
                           }
                         >
@@ -671,8 +676,9 @@ function LiveLessonDetailContent({
                         {submission.isCorrect ? "✓" : "×"}
                       </span>
                     )}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ol>
             ) : (
               <p className="mt-4 text-sm text-muted">Bu sual üçün hələ cavab yoxdur.</p>
