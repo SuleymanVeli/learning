@@ -117,8 +117,12 @@ export async function POST(request: Request) {
       return jsonError("Quiz tapılmadı.", 404);
     }
 
-    const availableTaskIds = [
-      ...new Set(quizzes.flatMap((quiz) => quiz.taskIds.map(String))),
+    const availableTaskIds: string[] = [
+      ...new Set(
+        quizzes.flatMap((quiz) =>
+          quiz.taskIds.map((taskId: unknown) => String(taskId)),
+        ),
+      ),
     ];
     const availableTasks = await Task.find({
       _id: { $in: availableTaskIds },
@@ -136,9 +140,9 @@ export async function POST(request: Request) {
 
     for (const selection of selections) {
       const quiz = quizById.get(selection.quizId);
-      const candidates = [
-        ...new Set(quiz?.taskIds.map(String) ?? []),
-      ].filter(
+      const quizTaskIds: string[] =
+        quiz?.taskIds.map((taskId: unknown) => String(taskId)) ?? [];
+      const candidates = [...new Set(quizTaskIds)].filter(
         (taskId) =>
           availableTaskIdSet.has(taskId) && !selectedTaskIds.has(taskId),
       );
