@@ -181,7 +181,7 @@ export async function GET(
       startedAt: lesson.startedAt?.toISOString() ?? null,
       endsAt: lesson.endsAt?.toISOString() ?? null,
       tabs,
-      ...(!isAdmin ? { leaderboard } : {}),
+      leaderboard,
     },
   });
 }
