@@ -79,6 +79,16 @@ export async function GET(
     submissions: submissions.map((submission) => ({
       ...submission,
       isCorrect: isClosed ? submission.isCorrect : undefined,
+      ...(isAdmin
+        ? {
+            reopened:
+              submission.studentId !== null &&
+              typeof submission.studentId === "object" &&
+              lesson.reopenedStudentIds.some((studentId) =>
+                studentId.equals(submission.studentId._id),
+              ),
+          }
+        : {}),
     })),
     revealed: isClosed,
   });

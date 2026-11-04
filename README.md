@@ -89,7 +89,8 @@ undone. Live lesson
 `PATCH` actions are `start`, `end`, `next-task`, and `reopen-student` (the latter
 also requires `studentId`). A lesson starts with the configured timer (120
 seconds by default). The API enforces the deadline and hides answer correctness
-from students; the admin can view results and re-enable an individual student.
+from students; while a lesson is live, the admin can re-enable an individual
+student to replace their answer to the active question.
 Homework answers can be submitted once per question and are graded immediately;
 students see their own result. Firebase Realtime Database broadcasts lesson
 change signals, with authenticated API polling as a fallback.

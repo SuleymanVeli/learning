@@ -56,6 +56,8 @@ function LiveLessonContent({ name }: { name: string }) {
   const [selectedGroupFilter, setSelectedGroupFilter] = useState("all");
   const [lessonPage, setLessonPage] = useState(1);
   const [editing, setEditing] = useState<Lesson | null | "new">(null);
+  const [randomizing, setRandomizing] = useState(false);
+  const [randomQuizIds, setRandomQuizIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -149,6 +151,60 @@ function LiveLessonContent({ name }: { name: string }) {
     }
   }
 
+  async function createRandomLesson(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const quizSelections = randomQuizIds.map((quizId) => ({
+      quizId,
+      count: Number(form.get(`count-${quizId}`)),
+    }));
+    if (!quizSelections.length) {
+      setError("Təsadüfi dərs üçün ən azı bir quiz seçin.");
+      return;
+    }
+    if (
+      quizSelections.some(
+        ({ quizId, count }) =>
+          !Number.isInteger(count) ||
+          count < 1 ||
+          count > (quizzes.find((quiz) => quiz._id === quizId)?.taskIds.length ?? 0),
+      )
+    ) {
+      setError("Hər quiz üçün tapşırıq sayı mövcud sual sayına uyğun olmalıdır.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await requestJson("/api/live-lessons", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.get("title"),
+          groupId: form.get("groupId"),
+          durationSeconds: Number(form.get("durationSeconds")),
+          quizSelections,
+        }),
+      });
+      setRandomizing(false);
+      setRandomQuizIds([]);
+      setSelectedGroupFilter("all");
+      setFilter("all");
+      setLessonPage(1);
+      setNotice("Təsadüfi canlı dərs yaradıldı.");
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Təsadüfi canlı dərsi yaratmaq olmadı.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function action(lesson: Lesson, actionName: string) {
     setSaving(true);
     setError("");
@@ -214,9 +270,21 @@ function LiveLessonContent({ name }: { name: string }) {
             Dərs yarat, tabları idarə et və cavab nəticələrinə bax.
           </p>
         </div>
-        <Button onClick={() => { setError(""); setEditing("new"); }}>
-          Canlı dərs əlavə et
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setError("");
+              setRandomQuizIds([]);
+              setRandomizing(true);
+            }}
+          >
+            Təsadüfi dərs yarat
+          </Button>
+          <Button onClick={() => { setError(""); setEditing("new"); }}>
+            Canlı dərs əlavə et
+          </Button>
+        </div>
       </div>
       {error && <p role="alert" className="mb-4 rounded-xl bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
       {notice && <p role="status" className="mb-4 rounded-xl bg-success-50 p-3 text-sm text-success-600">{notice}</p>}
@@ -332,6 +400,100 @@ function LiveLessonContent({ name }: { name: string }) {
         onClose={() => setEditing(null)}
         onSubmit={save}
       />
+      <Modal
+        open={randomizing}
+        title="Təsadüfi canlı dərs yarat"
+        description="Seçilmiş hər quizdən göstərilən sayda fərqli, aktiv tapşırıq təsadüfi seçiləcək."
+        onClose={() => setRandomizing(false)}
+      >
+        <form
+          key={randomizing ? "random-open" : "random-closed"}
+          className="space-y-4"
+          onSubmit={createRandomLesson}
+        >
+          <Input label="Dərsin adı" name="title" maxLength={200} required />
+          <Select label="Qrup" name="groupId" defaultValue="" required>
+            <option value="">Qrup seç</option>
+            {groups.map((group) => (
+              <option key={group._id} value={group._id}>
+                {group.name}
+              </option>
+            ))}
+          </Select>
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium">
+              Quizlərdən sual sayı
+            </legend>
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {quizzes.map((quiz) => {
+                const selected = randomQuizIds.includes(quiz._id);
+                return (
+                  <div
+                    key={quiz._id}
+                    className="flex items-center gap-3 rounded-lg border border-border p-3"
+                  >
+                    <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={!quiz.taskIds.length}
+                        onChange={(event) => {
+                          const checked = event.currentTarget.checked;
+                          setRandomQuizIds((current) =>
+                            checked
+                              ? [...current, quiz._id]
+                              : current.filter((id) => id !== quiz._id),
+                          );
+                        }}
+                        className="h-4 w-4 accent-brand-600"
+                      />
+                      <span className="truncate">
+                        {quiz.title} · {quiz.taskIds.length} sual
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      name={`count-${quiz._id}`}
+                      aria-label={`${quiz.title} üçün sual sayı`}
+                      min={1}
+                      max={quiz.taskIds.length}
+                      defaultValue={1}
+                      disabled={!selected}
+                      className="w-20 rounded-xl border border-border bg-surface-muted px-3 py-2 text-foreground disabled:opacity-50"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+          <Select
+            label="Standart vaxt (dəqiqə)"
+            name="durationSeconds"
+            defaultValue="120"
+          >
+            {[1, 2, 3, 5, 10, 15, 30, 60].map((minute) => (
+              <option key={minute} value={minute * 60}>
+                {minute} dəq.
+              </option>
+            ))}
+          </Select>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRandomizing(false)}
+            >
+              Ləğv et
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving || !groups.length || !quizzes.some((quiz) => quiz.taskIds.length)}
+            >
+              {saving ? "Yaradılır..." : "Təsadüfi dərsi yarat"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
       <Modal
         open={deleting !== null}
         title="Canlı dərsi sil"

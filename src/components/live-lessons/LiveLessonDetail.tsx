@@ -46,6 +46,7 @@ interface LiveSubmission {
   answer: unknown;
   submittedAt: string;
   isCorrect?: boolean;
+  reopened?: boolean;
   studentId: { _id: string; name: string; avatar?: string } | string;
 }
 
@@ -179,7 +180,13 @@ function LiveLessonDetailContent({
         body: JSON.stringify({ action, ...extras }),
       });
       await load();
-      setNotice(action === "end" ? "Dərs bitirildi." : "Canlı tab yeniləndi.");
+      setNotice(
+        action === "end"
+          ? "Dərs bitirildi."
+          : action === "reopen-student"
+            ? "Şagirdə yenidən cavab verməyə icazə verildi."
+            : "Canlı tab yeniləndi.",
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Əməliyyat alınmadı.");
     } finally {
@@ -587,9 +594,28 @@ function LiveLessonDetailContent({
                         ? "Şagird"
                         : submission.studentId.name}
                     </span>
-                    <span className="text-sm">
-                      {answerLabel(submission.answer, displayedTask)}
-                    </span>
+                    <AnswerDisplay
+                      answer={submission.answer}
+                      task={displayedTask}
+                    />
+                    {lesson.status === "live" &&
+                      selectedTab === lesson.activeTaskIndex &&
+                      typeof submission.studentId !== "string" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={saving || submission.reopened}
+                          onClick={() =>
+                            void runAction("reopen-student", {
+                              studentId: submission.studentId._id,
+                            })
+                          }
+                        >
+                          {submission.reopened
+                            ? "Yenidən cavab açıqdır"
+                            : "Yenidən cavab verməyə icazə ver"}
+                        </Button>
+                      )}
                     {submissionsRevealed && (
                       <span className="text-sm font-bold">
                         {submission.isCorrect ? "✓" : "×"}
@@ -646,7 +672,10 @@ function LiveLessonDetailContent({
                       ? "Şagird"
                       : submission.studentId.name}
                   </span>
-                  <span className="text-sm">{answerLabel(submission.answer, activeTask)}</span>
+                  <AnswerDisplay
+                    answer={submission.answer}
+                    task={activeTask}
+                  />
                   {submissionsRevealed && (
                     <span className="text-sm font-bold">
                       {submission.isCorrect ? "✓" : "×"}
@@ -664,12 +693,54 @@ function LiveLessonDetailContent({
   );
 }
 
-function answerLabel(answer: unknown, task: LessonTask | null) {
+function AnswerDisplay({
+  answer,
+  task,
+}: {
+  answer: unknown;
+  task: LessonTask | null;
+}) {
   const values = Array.isArray(answer) ? answer : [answer];
-  return values
-    .map((value) => {
-      if (typeof value !== "string") return JSON.stringify(value);
-      return task?.options?.find((option) => option.id === value)?.text ?? value;
-    })
-    .join(", ");
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+      {values.map((value, index) => {
+        const optionIndex =
+          typeof value === "string"
+            ? task?.options?.findIndex((option) => option.id === value) ?? -1
+            : -1;
+        const option =
+          optionIndex >= 0 ? task?.options?.[optionIndex] : undefined;
+
+        return (
+          <span key={`${String(value)}-${index}`} className="inline-flex items-center gap-2">
+            {index > 0 && <span aria-hidden="true">,</span>}
+            {option ? (
+              <>
+                <span className="font-semibold">
+                  {String.fromCharCode(65 + optionIndex)}.
+                </span>
+                {option.imageUrl && (
+                  <Image
+                    src={option.imageUrl}
+                    alt={option.text || "Seçilmiş şəkil"}
+                    width={96}
+                    height={64}
+                    unoptimized
+                    className="h-16 w-24 rounded-md object-contain"
+                  />
+                )}
+                {option.text && <span>{option.text}</span>}
+              </>
+            ) : (
+              <span>
+                {typeof value === "string"
+                  ? value
+                  : JSON.stringify(value)}
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
