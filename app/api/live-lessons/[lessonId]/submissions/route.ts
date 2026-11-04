@@ -79,13 +79,14 @@ export async function GET(
     lessonId: lesson._id,
     taskId,
   })
-    .select("+isCorrect")
+    .select("+isCorrect +isCorrectOverride")
     .populate("studentId", "name email avatar")
     .lean();
   submissions.sort((left, right) => {
     if (isClosed) {
       const correctness =
-        Number(right.isCorrect) - Number(left.isCorrect);
+        Number(right.isCorrectOverride ?? right.isCorrect) -
+        Number(left.isCorrectOverride ?? left.isCorrect);
       if (correctness) return correctness;
     }
     return left.submittedAt.getTime() - right.submittedAt.getTime();
@@ -93,9 +94,12 @@ export async function GET(
   return Response.json({
     submissions: submissions.map((submission) => ({
       ...submission,
-      isCorrect: isClosed ? submission.isCorrect : undefined,
+      isCorrect: isClosed
+        ? (submission.isCorrectOverride ?? submission.isCorrect)
+        : undefined,
       ...(isAdmin
         ? {
+            isCorrectOverride: submission.isCorrectOverride === true,
             reopened:
               submission.studentId !== null &&
               typeof submission.studentId === "object" &&
@@ -108,6 +112,57 @@ export async function GET(
     revealed: isClosed,
     reopened,
   });
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ lessonId: string }> },
+) {
+  const admin = await requireUser("admin");
+  if (admin instanceof Response) return admin;
+
+  const { lessonId } = await params;
+  if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+    return jsonError("Canlı dərs tapılmadı.", 404);
+  }
+  const body = await readJsonObject(request);
+  if (
+    !body ||
+    typeof body.submissionId !== "string" ||
+    !mongoose.Types.ObjectId.isValid(body.submissionId) ||
+    (body.action !== "mark-correct" && body.action !== "clear-override")
+  ) {
+    return jsonError("Cavabın qiymətləndirmə məlumatları yanlışdır.", 400);
+  }
+
+  await connectToDatabase();
+  const lesson = await LiveLesson.findOne({
+    _id: lessonId,
+    createdBy: admin._id,
+  }).select("_id");
+  if (!lesson) return jsonError("Canlı dərs tapılmadı.", 404);
+
+  const submissionId = new mongoose.Types.ObjectId(body.submissionId);
+  const submission = await Submission.findOne({
+    _id: submissionId,
+    lessonId: lesson._id,
+  }).select("_id");
+  if (!submission) return jsonError("Şagird cavabı tapılmadı.", 404);
+
+  if (body.action === "mark-correct") {
+    await Submission.updateOne(
+      { _id: submission._id },
+      { $set: { isCorrectOverride: true } },
+    );
+  } else {
+    await Submission.updateOne(
+      { _id: submission._id },
+      { $unset: { isCorrectOverride: 1 } },
+    );
+  }
+
+  const realtime = await publishLessonSignal(lesson._id.toString());
+  return Response.json({ success: true, realtimeSynced: realtime.synced });
 }
 
 export async function POST(
@@ -208,7 +263,10 @@ export async function POST(
   if (previousSubmission) {
     await Submission.updateOne(
       { _id: previousSubmission._id },
-      { $set: submissionData },
+      {
+        $set: submissionData,
+        $unset: { isCorrectOverride: 1 },
+      },
     );
   } else {
     try {

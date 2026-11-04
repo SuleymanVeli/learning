@@ -6,6 +6,7 @@ export interface SubmissionDocument extends Document {
   studentId: Types.ObjectId;
   answer: unknown;
   isCorrect: boolean;
+  isCorrectOverride?: boolean;
   submittedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -18,6 +19,7 @@ const submissionSchema = new Schema<SubmissionDocument>(
     studentId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     answer: { type: Schema.Types.Mixed, required: true },
     isCorrect: { type: Boolean, required: true, select: false },
+    isCorrectOverride: { type: Boolean, select: false },
     submittedAt: { type: Date, required: true, default: Date.now },
   },
   { timestamps: true },

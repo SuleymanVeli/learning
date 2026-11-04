@@ -80,7 +80,7 @@ export async function GET(
           taskId: { $in: closedTaskIds },
           studentId: { $in: group.studentIds },
         })
-          .select("studentId +isCorrect")
+          .select("studentId +isCorrect +isCorrectOverride")
           .lean()
       : Promise.resolve([]),
   ]);
@@ -96,7 +96,7 @@ export async function GET(
       incorrect: 0,
     };
     stats.answered += 1;
-    if (submission.isCorrect) stats.correct += 1;
+    if (submission.isCorrectOverride ?? submission.isCorrect) stats.correct += 1;
     else stats.incorrect += 1;
     statsByStudent.set(studentId, stats);
   }

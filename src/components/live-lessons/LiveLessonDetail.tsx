@@ -46,6 +46,7 @@ interface LiveSubmission {
   answer: unknown;
   submittedAt: string;
   isCorrect?: boolean;
+  isCorrectOverride?: boolean;
   reopened?: boolean;
   studentId: { _id: string; name: string; avatar?: string } | string;
 }
@@ -192,6 +193,38 @@ function LiveLessonDetailContent({
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Əməliyyat alınmadı.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setSubmissionCorrect(
+    submission: LiveSubmission,
+    isCorrect: boolean,
+  ) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await requestJson(`/api/live-lessons/${lessonId}/submissions`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          submissionId: submission._id,
+          action: isCorrect ? "mark-correct" : "clear-override",
+        }),
+      });
+      await load();
+      setNotice(
+        isCorrect
+          ? "Şagirdin cavabı düzgün kimi qeyd edildi."
+          : "Əl ilə verilmiş qiymət silindi.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Cavabın qiymətini yeniləmək olmadı.",
+      );
     } finally {
       setSaving(false);
     }
@@ -600,6 +633,21 @@ function LiveLessonDetailContent({
                       answer={submission.answer}
                       task={displayedTask}
                     />
+                    <Button
+                      size="sm"
+                      variant={submission.isCorrectOverride ? "success" : "outline"}
+                      disabled={saving}
+                      onClick={() =>
+                        void setSubmissionCorrect(
+                          submission,
+                          !submission.isCorrectOverride,
+                        )
+                      }
+                    >
+                      {submission.isCorrectOverride
+                        ? "Düz kimi qeyd olunub · Geri al"
+                        : "Düz qəbul et"}
+                    </Button>
                     {lesson.status === "live" &&
                       selectedTab === lesson.activeTaskIndex &&
                       typeof submission.studentId !== "string" && (
