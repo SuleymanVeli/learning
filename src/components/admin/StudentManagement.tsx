@@ -503,9 +503,6 @@ function StudentManagementContent({ name }: { name: string }) {
             {error && <ModalError message={error} />}
             <StudentIdentity student={action.student} />
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setAction(null)}>
-                Ləğv et
-              </Button>
               <Button
                 variant={
                   action.type === "deactivate" ? "danger" : "success"
@@ -551,13 +548,6 @@ function StudentManagementContent({ name }: { name: string }) {
               required
             />
             <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAction(null)}
-              >
-                Ləğv et
-              </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? "Yenilənir..." : "Şifrəni sıfırla"}
               </Button>
@@ -590,13 +580,6 @@ function StudentManagementContent({ name }: { name: string }) {
               required
             />
             <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAction(null)}
-              >
-                Ləğv et
-              </Button>
               <Button type="submit" variant="danger" disabled={saving}>
                 {saving ? "Silinir..." : "Hesabı tam sil"}
               </Button>

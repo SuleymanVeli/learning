@@ -532,13 +532,6 @@ function QuizManagementContent({ name }: { name: string }) {
             </Button>
           )}
           <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setQuizAction(null)}
-            >
-              Ləğv et
-            </Button>
             <Button type="submit" disabled={saving}>
               {saving ? "Yadda saxlanılır..." : "Quiz-i yadda saxla"}
             </Button>
@@ -603,13 +596,6 @@ function QuizManagementContent({ name }: { name: string }) {
             edilə bilər.
           </p>
           <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setJsonTaskModalOpen(false)}
-            >
-              Ləğv et
-            </Button>
             <Button type="submit" disabled={saving || !quizzes.length}>
               {saving ? "Əlavə olunur..." : "Tapşırıqları əlavə et"}
             </Button>
@@ -740,13 +726,6 @@ function QuizManagementContent({ name }: { name: string }) {
           )}
           <div className="flex justify-end gap-3">
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => setPickerOpen(false)}
-            >
-              Ləğv et
-            </Button>
-            <Button
               type="submit"
               disabled={
                 saving ||
@@ -777,9 +756,6 @@ function QuizManagementContent({ name }: { name: string }) {
               {deleteQuiz.title}
             </p>
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDeleteQuiz(null)}>
-                Ləğv et
-              </Button>
               <Button
                 variant="danger"
                 disabled={saving}

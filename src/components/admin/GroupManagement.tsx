@@ -784,13 +784,6 @@ function GroupManagementContent({ name }: { name: string }) {
                 </div>
               )}
               <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setModal(null)}
-                >
-                  Ləğv et
-                </Button>
                 <Button type="submit" disabled={saving}>
                   {saving
                     ? "Yadda saxlanılır..."
@@ -882,13 +875,6 @@ function GroupManagementContent({ name }: { name: string }) {
                 <div className="mt-6 flex justify-end gap-3">
                   <Button
                     type="button"
-                    variant="outline"
-                    onClick={() => setModal(null)}
-                  >
-                    Ləğv et
-                  </Button>
-                  <Button
-                    type="button"
                     disabled={
                       saving ||
                       candidateLoading ||
@@ -935,13 +921,6 @@ function GroupManagementContent({ name }: { name: string }) {
                   required
                 />
                 <div className="flex justify-end gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setModal(null)}
-                  >
-                    Ləğv et
-                  </Button>
                   <Button type="submit" variant="danger" disabled={saving}>
                     {saving ? "Çıxarılır..." : "Qrupdan çıxar"}
                   </Button>
@@ -968,12 +947,6 @@ function GroupManagementContent({ name }: { name: string }) {
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setModal(null)}
-                  >
-                    Ləğv et
-                  </Button>
                   <Button
                     variant="danger"
                     disabled={saving}
@@ -1002,12 +975,6 @@ function GroupManagementContent({ name }: { name: string }) {
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setModal(null)}
-                  >
-                    Ləğv et
-                  </Button>
                   <Button
                     disabled={saving}
                     onClick={() => void restoreGroup(modal.group)}
@@ -1043,12 +1010,6 @@ function GroupManagementContent({ name }: { name: string }) {
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setModal(null)}
-                  >
-                    Ləğv et
-                  </Button>
                   <Button
                     variant={modal.group.inviteEnabled ? "danger" : "success"}
                     disabled={saving}

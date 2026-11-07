@@ -479,13 +479,6 @@ function LiveLessonContent({ name }: { name: string }) {
           </Select>
           <div className="flex justify-end gap-2">
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRandomizing(false)}
-            >
-              Ləğv et
-            </Button>
-            <Button
               type="submit"
               disabled={saving || !groups.length || !quizzes.some((quiz) => quiz.taskIds.length)}
             >
@@ -505,7 +498,6 @@ function LiveLessonContent({ name }: { name: string }) {
             <p className="font-semibold">{deleting.title}</p>
             {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDeleting(null)}>Ləğv et</Button>
               <Button variant="danger" disabled={saving} onClick={() => void removeLesson()}>Sil</Button>
             </div>
           </div>
@@ -569,7 +561,6 @@ function LessonModal({
           {[1, 2, 3, 5, 10, 15, 30, 60].map((minute) => <option key={minute} value={minute * 60}>{minute} dəq.</option>)}
         </Select>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>Ləğv et</Button>
           <Button type="submit" disabled={saving || !groups.length || !quizzes.length}>
             {saving ? "Yadda saxlanılır..." : lesson ? "Dəyişiklikləri saxla" : "Dərsi yarat"}
           </Button>

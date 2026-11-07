@@ -526,9 +526,6 @@ function TaskManagementContent({ name }: { name: string }) {
               {deletingTask.title}
             </p>
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDeletingTask(null)}>
-                Ləğv et
-              </Button>
               <Button
                 variant="danger"
                 disabled={saving}
@@ -1096,9 +1093,6 @@ function TaskFormModal({
             ))}
           </Select>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Ləğv et
-            </Button>
             <Button type="submit" disabled={saving || !quizzes.length}>
               {saving
                 ? "Yadda saxlanılır..."

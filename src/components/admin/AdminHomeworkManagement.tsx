@@ -389,14 +389,6 @@ function AdminHomeworkContent({ name }: { name: string }) {
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={() => setDeleting(null)}
-              >
-                Ləğv et
-              </Button>
-              <Button
-                type="button"
                 variant="danger"
                 disabled={saving}
                 onClick={() => void deleteAssignment()}
