@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Plus } from "lucide-react";
 import { DashboardShell } from "@/src/components/app/DashboardShell";
 import { RoleGate } from "@/src/components/app/RoleGate";
 import { Button } from "@/src/components/ui/Button";
@@ -9,9 +10,9 @@ import { Input } from "@/src/components/ui/Input";
 import { Modal } from "@/src/components/ui/Modal";
 import { Pagination } from "@/src/components/ui/Pagination";
 import { Select } from "@/src/components/ui/Select";
-import { Textarea } from "@/src/components/ui/Textarea";
 import { TaskContentEditor } from "@/src/components/admin/TaskContentEditor";
 import { TaskOptionEditor } from "@/src/components/admin/TaskOptionEditor";
+import { BulkTaskModal } from "@/src/components/admin/BulkTaskModal";
 import { TaskContent } from "@/src/components/tasks/TaskContent";
 import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
 import { requestJson } from "@/src/lib/client-api";
@@ -42,7 +43,9 @@ interface QuizItem {
 }
 
 type TaskType = "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
-type TaskModal = { type: "create" } | { type: "edit"; task: TaskItem };
+type TaskModal =
+  | { type: "create"; quizId?: string }
+  | { type: "edit"; task: TaskItem };
 const TASKS_PER_PAGE = 10;
 
 export function TaskManagement() {
@@ -64,6 +67,7 @@ function TaskManagementContent({ name }: { name: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<TaskModal | null>(null);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [previewTask, setPreviewTask] = useState<TaskItem | null>(null);
   const [deletingTask, setDeletingTask] = useState<TaskItem | null>(null);
 
@@ -246,8 +250,10 @@ function TaskManagementContent({ name }: { name: string }) {
             type: taskType,
             options,
             correctAnswer,
-            explanation: form.get("explanation"),
-            difficulty: form.get("difficulty"),
+            explanation:
+              modal.type === "edit" ? modal.task.explanation ?? "" : "",
+            difficulty:
+              modal.type === "edit" ? modal.task.difficulty : "medium",
             quizId,
           }),
         },
@@ -288,7 +294,29 @@ function TaskManagementContent({ name }: { name: string }) {
   function openTask(next: TaskModal) {
     setError("");
     setNotice("");
-    setModal(next);
+    setModal(
+      next.type === "create"
+        ? {
+            ...next,
+            quizId:
+              selectedQuizFilter !== "all" &&
+              selectedQuizFilter !== "unassigned"
+                ? selectedQuizFilter
+                : "",
+          }
+        : next,
+    );
+  }
+
+  function completeBulkTasks(createdCount: number, warning: string) {
+    setBulkModalOpen(false);
+    setTaskPage(1);
+    setNotice(`${createdCount} tapşırıq quizə əlavə olundu.${warning}`);
+    void load().catch((cause: unknown) => {
+      setError(
+        cause instanceof Error ? cause.message : "Tapşırıqları yeniləmək olmadı.",
+      );
+    });
   }
 
   return (
@@ -304,12 +332,25 @@ function TaskManagementContent({ name }: { name: string }) {
             quizdə təkrar istifadə oluna bilər.
           </p>
         </div>
-        <Button
-          onClick={() => openTask({ type: "create" })}
-          disabled={!quizzes.length}
-        >
-          Yeni tapşırıq
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setError("");
+              setNotice("");
+              setBulkModalOpen(true);
+            }}
+            disabled={!quizzes.length}
+          >
+            Toplu əlavə et
+          </Button>
+          <Button
+            onClick={() => openTask({ type: "create" })}
+            disabled={!quizzes.length}
+          >
+            Yeni tapşırıq
+          </Button>
+        </div>
       </div>
 
       {error && <InlineNotice message={error} isError />}
@@ -480,6 +521,16 @@ function TaskManagementContent({ name }: { name: string }) {
         onClose={() => setModal(null)}
         onSubmit={saveTask}
       />
+      {bulkModalOpen && (
+        <BulkTaskModal
+          quizzes={quizzes.map((quiz) => ({
+            id: quiz._id,
+            title: quiz.title,
+          }))}
+          onClose={() => setBulkModalOpen(false)}
+          onComplete={completeBulkTasks}
+        />
+      )}
       <TaskPreviewModal
         key={previewTask?._id ?? "closed"}
         task={previewTask}
@@ -905,6 +956,8 @@ function TaskFormModal({
       : [
           { id: "option-1", text: "" },
           { id: "option-2", text: "" },
+          { id: "option-3", text: "" },
+          { id: "option-4", text: "" },
         ],
   );
   const [correctOptions, setCorrectOptions] = useState<string[]>(() => {
@@ -921,13 +974,16 @@ function TaskFormModal({
     task?.type === "short_answer" && typeof task.correctAnswer === "string"
       ? task.correctAnswer
       : "";
-  const quizId = task?.quizzes[0]?.id ?? "";
+  const quizId =
+    task?.quizzes[0]?.id ??
+    (modal?.type === "create" ? modal.quizId : undefined) ??
+    "";
 
   return (
     <Modal
       open={modal !== null}
       title={task ? "Tapşırığı redaktə et" : "Yeni tapşırıq"}
-      description="Tapşırığın daxil ediləcəyi quiz mütləq seçilməlidir."
+      size="wide"
       onClose={onClose}
     >
       {modal && (
@@ -937,14 +993,29 @@ function TaskFormModal({
           onSubmit={(event) => onSubmit(event, taskType, contentBlocks, options)}
         >
           {error && <InlineNotice message={error} isError />}
-          <Input
-            autoFocus
-            label="Tapşırığın adı"
-            name="title"
-            defaultValue={task?.title ?? ""}
-            maxLength={200}
-            required
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              autoFocus
+              label="Tapşırığın adı"
+              name="title"
+              defaultValue={task?.title ?? ""}
+              maxLength={200}
+              required
+            />
+            <Select
+              label="Aid olduğu quiz"
+              name="quizId"
+              defaultValue={quizId}
+              required
+            >
+              <option value="">Quiz seç</option>
+              {quizzes.map((quiz) => (
+                <option key={quiz._id} value={quiz._id}>
+                  {quiz.title}
+                </option>
+              ))}
+            </Select>
+          </div>
           <TaskContentEditor
             initialBlocks={task?.contentBlocks}
             prompt={task?.prompt ?? ""}
@@ -976,19 +1047,15 @@ function TaskFormModal({
               <legend className="text-sm font-medium text-foreground">
                 Cavab variantları
               </legend>
-              <p className="text-xs leading-5 text-muted">
-                Variant mətnini yazın və ya şəkil əlavə edin. Şəklin faylını
-                seçə, mübadilə buferindən yapışdıra və ölçülərini piksel ilə
-                təyin edə bilərsiniz.
-              </p>
               {options.map((option, index) => (
                 <TaskOptionEditor
                   key={option.id}
                   option={option}
                   label={`Variant ${index + 1}`}
+                  correctInputName="correctOption"
                   correct={correctOptions.includes(option.id)}
                   correctInputType={
-                    "checkbox"
+                    taskType === "multiple_choice" ? "checkbox" : "radio"
                   }
                   showCorrectControl={taskType !== "drag_drop"}
                   disabled={saving}
@@ -1039,6 +1106,7 @@ function TaskFormModal({
                   ])
                 }
               >
+                <Plus aria-hidden="true" className="h-4 w-4" />
                 Variant əlavə et
               </Button>
             </fieldset>
@@ -1063,35 +1131,6 @@ function TaskFormModal({
               required
             />
           )}
-          <Textarea
-            label="İzah (istəyə görə)"
-            name="explanation"
-            defaultValue={task?.explanation ?? ""}
-            rows={2}
-            maxLength={5000}
-          />
-          <Select
-            label="Çətinlik"
-            name="difficulty"
-            defaultValue={task?.difficulty ?? "medium"}
-          >
-            <option value="easy">Asan</option>
-            <option value="medium">Orta</option>
-            <option value="hard">Çətin</option>
-          </Select>
-          <Select
-            label="Aid olduğu quiz"
-            name="quizId"
-            defaultValue={quizId}
-            required
-          >
-            <option value="">Quiz seç</option>
-            {quizzes.map((quiz) => (
-              <option key={quiz._id} value={quiz._id}>
-                {quiz.title}
-              </option>
-            ))}
-          </Select>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="submit" disabled={saving || !quizzes.length}>
               {saving

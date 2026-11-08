@@ -6,7 +6,7 @@ interface ModalProps {
   open: boolean;
   title: string;
   description?: string;
-  size?: "default" | "full";
+  size?: "default" | "wide" | "full";
   onClose: () => void;
   children: ReactNode;
 }
@@ -42,7 +42,9 @@ export function Modal({
       className={`m-auto border border-border bg-surface p-0 text-foreground shadow-2xl backdrop:bg-slate-950/40 ${
         size === "full"
           ? "flex h-[calc(100%-1rem)] max-h-none w-[calc(100%-1rem)] max-w-none flex-col overflow-hidden rounded-2xl"
-          : "max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl"
+          : size === "wide"
+            ? "max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl"
+            : "max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl"
       }`}
     >
       <div className="relative border-b border-border px-6 py-5 pr-14">

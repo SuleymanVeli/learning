@@ -7,6 +7,16 @@ import {
   type ClipboardEvent,
 } from "react";
 import Image from "next/image";
+import {
+  ArrowDown,
+  ArrowUp,
+  ClipboardPaste,
+  Eye,
+  EyeOff,
+  ImagePlus,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/src/components/ui/Button";
 import type { TaskContentBlock } from "@/src/models/Task";
 
@@ -17,6 +27,13 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+const CONTENT_CARD_STYLES = [
+  "border-sky-200 bg-sky-50/70",
+  "border-violet-200 bg-violet-50/70",
+  "border-amber-200 bg-amber-50/70",
+  "border-emerald-200 bg-emerald-50/70",
+  "border-rose-200 bg-rose-50/70",
+];
 
 type ImageTarget =
   | { type: "block"; blockIndex: number }
@@ -77,6 +94,160 @@ function replaceHtmlImageSource(
       (closing) => ` src="${escapedSource}"${closing}`,
     );
   });
+}
+
+function containsHtmlMarkup(value: string) {
+  return /<\/?[a-z][^>]*>/i.test(value);
+}
+
+function plainTextToHtml(value: string) {
+  if (!value) return "";
+  return value
+    .split(/\n{2,}/)
+    .map(
+      (paragraph) =>
+        `<p>${paragraph
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;")
+          .replace(/\n/g, "<br>")}</p>`,
+    )
+    .join("");
+}
+
+function htmlToPlainText(html: string) {
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  function readNode(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const element = node as HTMLElement;
+    if (element.tagName === "BR") return "\n";
+    const text = Array.from(element.childNodes, readNode).join("");
+    return /^(P|DIV|LI|H[1-6]|BLOCKQUOTE|TR)$/.test(element.tagName)
+      ? `${text}\n`
+      : text;
+  }
+  return readNode(parsed.body).replace(/\n+$/, "");
+}
+
+function TextBlockEditor({
+  block,
+  index,
+  disabled,
+  uploading,
+  blockCount,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  block: Extract<TaskContentBlock, { type: "text" }>;
+  index: number;
+  disabled: boolean;
+  uploading: boolean;
+  blockCount: number;
+  onChange: (text: string) => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const [mode, setMode] = useState<"text" | "html">(() =>
+    containsHtmlMarkup(block.text) ? "html" : "text",
+  );
+  const [plainText, setPlainText] = useState(block.text);
+
+  function toggleMode() {
+    if (mode === "html") {
+      const nextPlainText = htmlToPlainText(block.text);
+      setPlainText(nextPlainText);
+      setMode("text");
+      return;
+    }
+    setMode("html");
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <label
+          htmlFor={`task-content-text-${index}`}
+          className="text-xs font-medium text-muted"
+        >
+          Mətn hissəsi
+        </label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-pressed={mode === "html"}
+            disabled={disabled || uploading}
+            onClick={toggleMode}
+            className="h-8 px-2"
+            title={mode === "html" ? "Sadə mətnə keç" : "HTML koduna keç"}
+          >
+            {mode === "html" ? "Mətn" : "HTML"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={`Mətn hissəsini yuxarı qaldır, ${index + 1}`}
+            disabled={disabled || uploading || index === 0}
+            onClick={() => onMove(-1)}
+            className="h-8 w-8 !p-0"
+          >
+            <ArrowUp aria-hidden="true" className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={`Mətn hissəsini aşağı sal, ${index + 1}`}
+            disabled={disabled || uploading || index === blockCount - 1}
+            onClick={() => onMove(1)}
+            className="h-8 w-8 !p-0"
+          >
+            <ArrowDown aria-hidden="true" className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={disabled || uploading || blockCount === 1}
+            onClick={onRemove}
+            className="h-8 w-8 !p-0"
+            aria-label={`Mətn hissəsini sil, ${index + 1}`}
+            title="Mətni sil"
+          >
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <textarea
+        id={`task-content-text-${index}`}
+        value={mode === "html" ? block.text : plainText}
+        rows={3}
+        maxLength={10000}
+        disabled={disabled || uploading}
+        onChange={(event) => {
+          const value = event.currentTarget.value;
+          if (mode === "html") {
+            onChange(value);
+          } else {
+            setPlainText(value);
+            onChange(plainTextToHtml(value));
+          }
+        }}
+        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+        placeholder={
+          mode === "html"
+            ? "<p>Sualın mətni...</p>"
+            : "Sualın mətnini bura yazın..."
+        }
+      />
+    </div>
+  );
 }
 
 export function TaskContentEditor({
@@ -284,9 +455,9 @@ export function TaskContentEditor({
 
   return (
     <div className="space-y-3" onPaste={handlePaste}>
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-700">Sualın kontenti</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-700">Sualın kontenti</h3>
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             size="sm"
@@ -294,15 +465,14 @@ export function TaskContentEditor({
             aria-pressed={showPreview}
             onClick={() => setShowPreview((current) => !current)}
           >
-            {showPreview ? "Redaktora qayıt" : "Önizləməni göstər"}
+            {showPreview ? (
+              <EyeOff aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Eye aria-hidden="true" className="h-4 w-4" />
+            )}
+            {showPreview ? "Redaktəyə qayıt" : "Ön baxış"}
           </Button>
         </div>
-        <p className="mt-1 text-xs leading-5 text-muted">
-          Mətn və şəkilləri istədiyiniz ardıcıllıqla əlavə edin. Şəkli mətn
-          sahəsində Ctrl+V ilə, düymə ilə yapışdırın və ya fayldan seçin.
-          Blokların yanındakı düymələrlə sıralamanı dəyişin. Yüklənən şəkillər
-          açıq Blob URL ilə saxlanılır.
-        </p>
       </div>
 
       {showPreview && (
@@ -404,109 +574,53 @@ export function TaskContentEditor({
         </section>
       )}
 
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={disabled || uploading || blocks.length >= 100}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Şəkli fayldan əlavə et
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp"
-          className="hidden"
-          disabled={disabled || uploading}
-          onChange={handleFileChange}
-        />
-      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        className="hidden"
+        disabled={disabled || uploading}
+        onChange={handleFileChange}
+      />
 
       {blocks.map((block, index) =>
         block.type === "text" ? (
           <div
             key={`text-${index}`}
-            className="space-y-2 rounded-xl border border-border p-3"
+            className={`space-y-2 rounded-xl border p-3 ${
+              CONTENT_CARD_STYLES[index % CONTENT_CARD_STYLES.length]
+            }`}
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-muted">
-                Mətn · {index + 1}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  aria-label={`Mətn hissəsini yuxarı qaldır, ${index + 1}`}
-                  disabled={disabled || uploading || index === 0}
-                  onClick={() => moveBlock(index, -1)}
-                >
-                  Yuxarı
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  aria-label={`Mətn hissəsini aşağı sal, ${index + 1}`}
-                  disabled={
-                    disabled || uploading || index === blocks.length - 1
-                  }
-                  onClick={() => moveBlock(index, 1)}
-                >
-                  Aşağı
-                </Button>
-              </div>
+            <div className="mb-1 text-xs font-medium text-muted">
+              Mətn · {index + 1}
             </div>
-            <label
-              htmlFor={`task-content-text-${index}`}
-              className="text-xs font-medium text-muted"
-            >
-              Mətn hissəsi (HTML)
-            </label>
-            <textarea
-              id={`task-content-text-${index}`}
-              value={block.text}
-              rows={3}
-              maxLength={10000}
-              disabled={disabled || uploading}
-              onFocus={() => setActiveTextIndex(index)}
-              onChange={(event) => {
+            <TextBlockEditor
+              block={block}
+              index={index}
+              disabled={disabled}
+              uploading={uploading}
+              blockCount={blocks.length}
+              onChange={(text) => {
                 const next = [...blocks];
-                next[index] = { type: "text", text: event.currentTarget.value };
+                next[index] = { type: "text", text };
                 updateBlocks(next);
+                setActiveTextIndex(index);
               }}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-              placeholder="<p>Sualın mətni...</p>&#10;<p><strong>Vacib hissə</strong></p>"
+              onMove={(direction) => moveBlock(index, direction)}
+              onRemove={() => {
+                updateBlocks(
+                  blocks.filter((_, blockIndex) => blockIndex !== index),
+                );
+                setActiveTextIndex(Math.max(index - 1, 0));
+              }}
             />
-            <p className="text-xs leading-5 text-muted">
-              HTML teqləri istifadə edə bilərsiniz: &lt;p&gt;, &lt;strong&gt;,
-              &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;a
-              href=&quot;...&quot;&gt;, &lt;table&gt; və başlıqlar. Təhlükəli
-              teqlər yadda saxlanarkən silinir.
-            </p>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={disabled || uploading || blocks.length === 1}
-                onClick={() => {
-                  updateBlocks(
-                    blocks.filter((_, blockIndex) => blockIndex !== index),
-                  );
-                  setActiveTextIndex(Math.max(index - 1, 0));
-                }}
-              >
-                Mətni sil
-              </Button>
-            </div>
           </div>
         ) : (
           <div
             key={`${block.url}-${index}`}
-            className="space-y-3 rounded-xl border border-border p-3"
+            className={`space-y-3 rounded-xl border p-3 ${
+              CONTENT_CARD_STYLES[index % CONTENT_CARD_STYLES.length]
+            }`}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-muted">
@@ -520,8 +634,9 @@ export function TaskContentEditor({
                   aria-label={`Şəkil blokunu yuxarı qaldır, ${index + 1}`}
                   disabled={disabled || uploading || index === 0}
                   onClick={() => moveBlock(index, -1)}
+                  className="h-8 w-8 !p-0"
                 >
-                  Yuxarı
+                  <ArrowUp aria-hidden="true" className="h-4 w-4" />
                 </Button>
                 <Button
                   type="button"
@@ -532,8 +647,49 @@ export function TaskContentEditor({
                     disabled || uploading || index === blocks.length - 1
                   }
                   onClick={() => moveBlock(index, 1)}
+                  className="h-8 w-8 !p-0"
                 >
-                  Aşağı
+                  <ArrowDown aria-hidden="true" className="h-4 w-4" />
+                </Button>
+                <label
+                  className={`inline-flex h-8 cursor-pointer items-center justify-center gap-1 rounded-xl border-2 border-border bg-transparent px-2 text-sm font-semibold text-foreground hover:border-brand-200 hover:bg-brand-50 ${
+                    disabled || uploading
+                      ? "cursor-not-allowed opacity-50"
+                      : ""
+                  }`}
+                >
+                  <ImagePlus aria-hidden="true" className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only">
+                    {uploading ? "Yüklənir..." : "Şəkli dəyiş"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    className="sr-only"
+                    disabled={disabled || uploading}
+                    onChange={(event) =>
+                      handleFileChange(event, {
+                        type: "block",
+                        blockIndex: index,
+                      })
+                    }
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="danger"
+                  disabled={disabled || uploading}
+                  onClick={() =>
+                    updateBlocks(
+                      blocks.filter((_, blockIndex) => blockIndex !== index),
+                    )
+                  }
+                  className="h-8 w-8 !p-0"
+                  aria-label={`Şəkil blokunu sil, ${index + 1}`}
+                  title="Şəkli sil"
+                >
+                  <Trash2 aria-hidden="true" className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -549,101 +705,56 @@ export function TaskContentEditor({
                 maxWidth: `${block.maxWidthPx ?? 800}px`,
               }}
             />
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">
-                Şəklin ölçüsü ({block.width}%)
-              </span>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={block.width}
-                disabled={disabled || uploading}
-                onChange={(event) => {
-                  const next = [...blocks];
-                  next[index] = {
-                    ...block,
-                    width: Number(event.currentTarget.value),
-                  };
-                  updateBlocks(next);
-                }}
-                className="w-full accent-brand-600"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">
-                Maksimum en (piksel)
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={4096}
-                step={1}
-                value={block.maxWidthPx ?? 800}
-                disabled={disabled || uploading}
-                onChange={(event) => {
-                  const maxWidthPx = Number(event.currentTarget.value);
-                  if (
-                    !Number.isInteger(maxWidthPx) ||
-                    maxWidthPx < 1 ||
-                    maxWidthPx > 4096
-                  ) {
-                    return;
-                  }
-                  const next = [...blocks];
-                  next[index] = { ...block, maxWidthPx };
-                  updateBlocks(next);
-                }}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">
-                Şəkil üçün qısa təsvir (istəyə görə)
-              </span>
-              <input
-                value={block.alt}
-                maxLength={300}
-                disabled={disabled || uploading}
-                onChange={(event) => {
-                  const next = [...blocks];
-                  next[index] = { ...block, alt: event.currentTarget.value };
-                  updateBlocks(next);
-                }}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-              />
-            </label>
-            <div className="flex flex-wrap justify-between gap-2">
-              <label
-                className={`inline-flex cursor-pointer items-center justify-center rounded-xl border-2 border-border bg-transparent px-3 py-1.5 text-sm font-semibold text-foreground hover:border-brand-200 hover:bg-brand-50 ${
-                  disabled || uploading ? "cursor-not-allowed opacity-50" : ""
-                }`}
-              >
-                {uploading ? "Yüklənir..." : "Şəkli dəyiş"}
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Şəklin ölçüsü ({block.width}%)
+                </span>
                 <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  className="sr-only"
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={block.width}
                   disabled={disabled || uploading}
-                  onChange={(event) =>
-                    handleFileChange(event, { type: "block", blockIndex: index })
-                  }
+                  onChange={(event) => {
+                    const next = [...blocks];
+                    next[index] = {
+                      ...block,
+                      width: Number(event.currentTarget.value),
+                    };
+                    updateBlocks(next);
+                  }}
+                  className="w-full accent-brand-600"
                 />
               </label>
-              <Button
-                type="button"
-                size="sm"
-                variant="danger"
-                disabled={disabled || uploading}
-                onClick={() =>
-                  updateBlocks(
-                    blocks.filter((_, blockIndex) => blockIndex !== index),
-                  )
-                }
-              >
-                Şəkli sil
-              </Button>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">
+                  Maksimum en (piksel)
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={4096}
+                  step={1}
+                  value={block.maxWidthPx ?? 800}
+                  disabled={disabled || uploading}
+                  onChange={(event) => {
+                    const maxWidthPx = Number(event.currentTarget.value);
+                    if (
+                      !Number.isInteger(maxWidthPx) ||
+                      maxWidthPx < 1 ||
+                      maxWidthPx > 4096
+                    ) {
+                      return;
+                    }
+                    const next = [...blocks];
+                    next[index] = { ...block, maxWidthPx };
+                    updateBlocks(next);
+                  }}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                />
+              </label>
             </div>
           </div>
         ),
@@ -668,6 +779,7 @@ export function TaskContentEditor({
             setActiveTextIndex(blocks.length);
           }}
         >
+          <Plus aria-hidden="true" className="h-4 w-4" />
           Mətn əlavə et
         </Button>
         <Button
@@ -677,7 +789,19 @@ export function TaskContentEditor({
           disabled={disabled || uploading || blocks.length >= 100}
           onClick={() => void pasteFromClipboard()}
         >
+          <ClipboardPaste aria-hidden="true" className="h-4 w-4" />
           {uploading ? "Şəkil yüklənir..." : "Şəkil yapışdır"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-label="Şəkli fayldan əlavə et"
+          disabled={disabled || uploading || blocks.length >= 100}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <ImagePlus aria-hidden="true" className="h-4 w-4" />
+          Şəkil əlavə et
         </Button>
       </div>
     </div>

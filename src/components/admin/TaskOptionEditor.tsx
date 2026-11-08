@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRef, useState, type ChangeEvent, type ClipboardEvent } from "react";
+import { ClipboardPaste, ImagePlus, Trash2 } from "lucide-react";
 import { Button } from "@/src/components/ui/Button";
 import { Input } from "@/src/components/ui/Input";
 import type { TaskOption } from "@/src/models/Task";
@@ -13,10 +14,10 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
-
 export function TaskOptionEditor({
   option,
   label,
+  correctInputName,
   correct,
   correctInputType,
   showCorrectControl = true,
@@ -27,6 +28,7 @@ export function TaskOptionEditor({
 }: {
   option: TaskOption;
   label: string;
+  correctInputName: string;
   correct: boolean;
   correctInputType: "checkbox" | "radio";
   showCorrectControl?: boolean;
@@ -139,40 +141,97 @@ export function TaskOptionEditor({
 
   return (
     <div
-      className="space-y-3 rounded-xl border border-border p-3"
+      className={`space-y-3 rounded-xl border border-violet-400 bg-violet-200 p-3 ${
+        correct ? "ring-2 ring-violet-600 shadow-sm" : ""
+      }`}
       onPaste={handlePaste}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {showCorrectControl && (
-          <label className="flex items-center gap-2 text-sm font-semibold">
+          <label className="flex items-center" title={`${label} düzgün cavabdır`}>
             <input
               type={correctInputType}
-              name="correctOption"
+              name={correctInputName}
               value={option.id}
               checked={correct}
               disabled={disabled}
               onChange={onCorrectChange}
               className="h-5 w-5 accent-brand-600"
+              aria-label={`${label} düzgün cavabdır`}
             />
-            Düzgün variant
           </label>
         )}
         <span className="text-sm font-semibold text-muted">{label}</span>
-        {onRemove && (
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button
             type="button"
             size="sm"
             variant="outline"
-            disabled={disabled}
-            onClick={onRemove}
-            className="ml-auto"
+            disabled={disabled || uploading}
+            onClick={() => fileRef.current?.click()}
+            aria-label={`${label} üçün şəkil seç`}
+            title="Şəkil seç"
+            className="h-8 w-8 !p-0"
           >
-            Sil
+            <ImagePlus aria-hidden="true" className="h-4 w-4" />
           </Button>
-        )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            className="hidden"
+            disabled={disabled || uploading}
+            onChange={handleFileChange}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={disabled || uploading}
+            onClick={() => void pasteImage()}
+            aria-label={`${label} üçün şəkil yapışdır`}
+            title="Şəkil yapışdır"
+            className="h-8 w-8 !p-0"
+          >
+            <ClipboardPaste aria-hidden="true" className="h-4 w-4" />
+          </Button>
+          {option.imageUrl && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled || uploading}
+              onClick={() =>
+                onChange({
+                  id: option.id,
+                  text: option.text,
+                })
+              }
+              className="h-8 w-8 !p-0"
+              aria-label={`${label} şəklini sil`}
+              title="Şəkli sil"
+            >
+              <Trash2 aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          )}
+          {onRemove && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled}
+              onClick={onRemove}
+              className="h-8 w-8 !p-0"
+              aria-label={`${label} sil`}
+              title={`${label} sil`}
+            >
+              <Trash2 aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
       <Input
-        label="Variant mətni (istəyə görə)"
+        label="Variant mətni"
         value={option.text}
         disabled={disabled}
         maxLength={1000}
@@ -222,50 +281,8 @@ export function TaskOptionEditor({
               }
             />
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={disabled || uploading}
-            onClick={() =>
-              onChange({
-                id: option.id,
-                text: option.text,
-              })
-            }
-          >
-            Şəkli sil
-          </Button>
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={disabled || uploading}
-          onClick={() => fileRef.current?.click()}
-        >
-          {uploading ? "Yüklənir..." : "Şəkli fayldan seç"}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp"
-          className="hidden"
-          disabled={disabled || uploading}
-          onChange={handleFileChange}
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={disabled || uploading}
-          onClick={() => void pasteImage()}
-        >
-          Şəkli yapışdır
-        </Button>
-      </div>
       {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
     </div>
   );
