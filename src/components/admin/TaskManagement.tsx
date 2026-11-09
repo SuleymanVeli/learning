@@ -1131,35 +1131,7 @@ function StudentTaskViewModal({
                     })}
                   </div>
                 </fieldset>
-              )}
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="student-flat-button h-10 w-full rounded-xl px-2"
-                  disabled
-                >
-                  ← Əvvəlki
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="student-flat-button h-10 w-full px-2"
-                  disabled
-                >
-                  Təsdiqlə
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="student-flat-button h-10 w-full rounded-xl px-2"
-                  disabled
-                >
-                  Növbəti →
-                </Button>
-              </div>
+              )}             
             </div>
           </Card>
         </div>
