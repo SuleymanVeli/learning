@@ -53,12 +53,26 @@ type PickerMode = "add" | "replace";
 export function QuizManagement() {
   return (
     <RoleGate role="admin">
-      {(user) => <QuizManagementContent name={user.name} />}
+      {(user) => (
+        <QuizManagementContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function QuizManagementContent({ name }: { name: string }) {
+function QuizManagementContent({
+  name,
+  avatar,
+  canManageTeachers,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+}) {
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -315,7 +329,12 @@ function QuizManagementContent({ name }: { name: string }) {
   }
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-brand-700">

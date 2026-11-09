@@ -15,17 +15,32 @@ const AVATARS = Array.from(
 );
 
 export function StudentProfile() {
+  return <ProfileContent role="student" />;
+}
+
+export function TeacherProfile() {
+  return <ProfileContent role="teacher" />;
+}
+
+function ProfileContent({ role }: { role: "student" | "teacher" }) {
   return (
-    <RoleGate role="student">
-      {(user) => <StudentProfileContent user={user} />}
+    <RoleGate role={role}>
+      {(user) => <ProfilePageContent user={user} role={role} />}
     </RoleGate>
   );
 }
 
-function StudentProfileContent({
+function ProfilePageContent({
   user,
+  role,
 }: {
-  user: { name: string; email: string; avatar: string };
+  user: {
+    name: string;
+    email: string;
+    avatar: string;
+    canManageTeachers: boolean;
+  };
+  role: "student" | "teacher";
 }) {
   const [name, setName] = useState(user.name);
   const [avatar, setAvatar] = useState(user.avatar);
@@ -79,9 +94,16 @@ function StudentProfileContent({
   }
 
   return (
-    <DashboardShell name={name} role="student" avatar={avatar}>
+    <DashboardShell
+      name={name}
+      role={role}
+      avatar={avatar}
+      canManageTeachers={user.canManageTeachers}
+    >
       <div className="mb-7">
-        <p className="text-sm font-extrabold text-violet-700">🌟 Sənin hesabın</p>
+        <p className="text-sm font-extrabold text-violet-700">
+          {role === "teacher" ? "Müəllim hesabı" : "🌟 Sənin hesabın"}
+        </p>
         <h1 className="mt-1 text-3xl font-black tracking-tight">Mənim profilim</h1>
         <p className="mt-2 font-semibold text-slate-500">
           Adını, avatarını və hesab şifrəsini dəyiş.

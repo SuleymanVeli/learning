@@ -5,7 +5,10 @@ import {
   isNonEmptyString,
   readJsonObject,
 } from "@/src/lib/api";
-import { requireUser } from "@/src/lib/auth";
+import {
+  requireUser,
+  teacherGroupScope,
+} from "@/src/lib/auth";
 import { Group } from "@/src/models/Group";
 import { LiveLesson } from "@/src/models/LiveLesson";
 import { Quiz } from "@/src/models/Quiz";
@@ -46,7 +49,12 @@ export async function GET() {
   if (admin instanceof Response) return admin;
 
   await connectToDatabase();
-  const lessons = await LiveLesson.find({ createdBy: admin._id })
+  const groups = await Group.find({
+    ...teacherGroupScope(admin),
+  }).select("_id");
+  const lessons = await LiveLesson.find({
+    groupId: { $in: groups.map((group) => group._id) },
+  })
     .populate("groupId", "name")
     .populate("taskIds", "title type")
     .sort({ createdAt: -1 })
@@ -109,7 +117,6 @@ export async function POST(request: Request) {
     const selections = body.quizSelections as QuizTaskSelection[];
     const quizzes = await Quiz.find({
       _id: { $in: selections.map((selection) => selection.quizId) },
-      createdBy: admin._id,
     })
       .select("taskIds")
       .lean();
@@ -126,7 +133,6 @@ export async function POST(request: Request) {
     ];
     const availableTasks = await Task.find({
       _id: { $in: availableTaskIds },
-      createdBy: admin._id,
       $or: [{ archivedAt: null }, { archivedAt: { $exists: false } }],
     }).select("_id");
     const availableTaskIdSet = new Set(
@@ -160,7 +166,7 @@ export async function POST(request: Request) {
     }
     lessonQuizIds = selections.map((selection) => selection.quizId);
   } else if (body.quizIds !== undefined) {
-    const resolvedTaskIds = await resolveQuizTaskIds(body.quizIds, admin._id);
+    const resolvedTaskIds = await resolveQuizTaskIds(body.quizIds);
     if (!resolvedTaskIds) {
       return jsonError("Quiz tapılmadı və ya boşdur.", 404);
     }
@@ -174,10 +180,10 @@ export async function POST(request: Request) {
   const [group, tasks] = await Promise.all([
     Group.findOne({
       _id: body.groupId,
-      adminId: admin._id,
+      ...teacherGroupScope(admin),
       archivedAt: null,
     }).select("_id"),
-    Task.find({ _id: { $in: taskIds }, createdBy: admin._id }).select("_id"),
+    Task.find({ _id: { $in: taskIds } }).select("_id"),
   ]);
   if (!group) return jsonError("Qrup tapılmadı.", 404);
   if (tasks.length !== new Set(taskIds).size) {

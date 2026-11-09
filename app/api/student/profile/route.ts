@@ -7,8 +7,8 @@ const AVATAR_PATHS = new Set(
 );
 
 export async function PATCH(request: Request) {
-  const student = await requireUser("student");
-  if (student instanceof Response) return student;
+  const user = await requireUser();
+  if (user instanceof Response) return user;
 
   const body = await readJsonObject(request);
   if (!body) return jsonError("Profil məlumatları yanlışdır.", 400);
@@ -17,14 +17,14 @@ export async function PATCH(request: Request) {
     if (!isNonEmptyString(body.name) || body.name.trim().length > 100) {
       return jsonError("Ad və soyad 1-100 simvol olmalıdır.", 400);
     }
-    student.name = body.name.trim();
+    user.name = body.name.trim();
   }
 
   if ("avatar" in body) {
     if (typeof body.avatar !== "string" || !AVATAR_PATHS.has(body.avatar)) {
       return jsonError("Avatar seçimi yanlışdır.", 400);
     }
-    student.avatar = body.avatar;
+    user.avatar = body.avatar;
   }
 
   if ("newPassword" in body || "currentPassword" in body) {
@@ -36,22 +36,22 @@ export async function PATCH(request: Request) {
     ) {
       return jsonError("Cari şifrə və 8-128 simvolluq yeni şifrə daxil edin.", 400);
     }
-    const studentWithPassword = await User.findById(student._id).select(
+    const userWithPassword = await User.findById(user._id).select(
       "+passwordHash",
     );
     if (
-      !studentWithPassword ||
+      !userWithPassword ||
       !(await verifyPassword(
         body.currentPassword,
-        studentWithPassword.passwordHash,
+        userWithPassword.passwordHash,
       ))
     ) {
       return jsonError("Cari şifrə yanlışdır.", 400);
     }
-    student.passwordHash = await hashPassword(body.newPassword);
-    student.authVersion += 1;
+    user.passwordHash = await hashPassword(body.newPassword);
+    user.authVersion += 1;
   }
 
-  await student.save();
-  return Response.json({ user: publicUser(student) });
+  await user.save();
+  return Response.json({ user: publicUser(user) });
 }

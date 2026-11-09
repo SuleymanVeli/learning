@@ -5,16 +5,20 @@ import {
   jsonError,
   readJsonObject,
 } from "@/src/lib/api";
-import { hashPassword, requireUser } from "@/src/lib/auth";
+import { hashPassword, requireUser, teacherGroupScope } from "@/src/lib/auth";
 import { Group } from "@/src/models/Group";
 import { HomeworkSubmission } from "@/src/models/HomeworkSubmission";
 import { LiveLesson } from "@/src/models/LiveLesson";
 import { Submission } from "@/src/models/Submission";
 import { User } from "@/src/models/User";
+import type { UserDocument } from "@/src/models/User";
 
-async function findManagedStudent(studentId: string, adminId: mongoose.Types.ObjectId) {
+async function findManagedStudent(
+  studentId: string,
+  user: UserDocument,
+) {
   if (!mongoose.Types.ObjectId.isValid(studentId)) return null;
-  const groupIds = await Group.find({ adminId }).distinct("_id");
+  const groupIds = await Group.find(teacherGroupScope(user)).distinct("_id");
   if (!groupIds.length) return null;
   return User.findOne({
     _id: studentId,
@@ -54,7 +58,7 @@ export async function PATCH(
   }
 
   await connectToDatabase();
-  const student = await findManagedStudent(studentId, admin._id);
+  const student = await findManagedStudent(studentId, admin);
   if (!student) return jsonError("İdarə etdiyiniz şagird tapılmadı.", 404);
 
   if (body.action === "approve") {
@@ -102,7 +106,7 @@ export async function DELETE(
   }
 
   await connectToDatabase();
-  const student = await findManagedStudent(studentId, admin._id);
+  const student = await findManagedStudent(studentId, admin);
   if (!student) return jsonError("İdarə etdiyiniz şagird tapılmadı.", 404);
   if (body.confirmEmail.trim().toLowerCase() !== student.email) {
     return jsonError("E-poçt ünvanı uyğun gəlmir.", 400);
@@ -110,13 +114,16 @@ export async function DELETE(
 
   await Promise.all([
     Group.updateMany(
-      { adminId: admin._id, studentIds: student._id },
+      { ...teacherGroupScope(admin), studentIds: student._id },
       { $pull: { studentIds: student._id } },
     ),
     Submission.deleteMany({ studentId: student._id }),
     HomeworkSubmission.deleteMany({ studentId: student._id }),
     LiveLesson.updateMany(
-      { createdBy: admin._id, reopenedStudentIds: student._id },
+      {
+        createdBy: admin._id,
+        reopenedStudentIds: student._id,
+      },
       { $pull: { reopenedStudentIds: student._id } },
     ),
   ]);

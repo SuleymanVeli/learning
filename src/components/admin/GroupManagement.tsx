@@ -25,6 +25,13 @@ interface GroupItem {
   inviteEnabled: boolean;
   studentCount: number;
   createdAt: string;
+  teacherId: string;
+  teacherName: string;
+}
+
+interface TeacherItem {
+  _id: string;
+  name: string;
 }
 
 interface CandidateStudent {
@@ -46,14 +53,32 @@ type ModalAction =
 export function GroupManagement() {
   return (
     <RoleGate role="admin">
-      {(user) => <GroupManagementContent name={user.name} />}
+      {(user) => (
+        <GroupManagementContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+          teachersCanBeAssigned={user.canManageTeachers}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function GroupManagementContent({ name }: { name: string }) {
+function GroupManagementContent({
+  name,
+  avatar,
+  canManageTeachers,
+  teachersCanBeAssigned,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+  teachersCanBeAssigned: boolean;
+}) {
   const [activeGroups, setActiveGroups] = useState<GroupItem[]>([]);
   const [archivedGroups, setArchivedGroups] = useState<GroupItem[]>([]);
+  const [teachers, setTeachers] = useState<TeacherItem[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<ModalAction | null>(null);
@@ -74,24 +99,32 @@ function GroupManagementContent({ name }: { name: string }) {
   const [notice, setNotice] = useState("");
 
   const loadGroups = useCallback(async () => {
-    const [active, archived] = await Promise.all([
+    const [active, archived, teacherResult] = await Promise.all([
       requestJson<{ groups: GroupItem[] }>("/api/groups"),
       requestJson<{ groups: GroupItem[] }>("/api/groups?archived=true"),
+      canManageTeachers
+        ? requestJson<{ teachers: TeacherItem[] }>("/api/teachers")
+        : Promise.resolve({ teachers: [] }),
     ]);
     setActiveGroups(active.groups);
     setArchivedGroups(archived.groups);
-  }, []);
+    setTeachers(teacherResult.teachers);
+  }, [canManageTeachers]);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       requestJson<{ groups: GroupItem[] }>("/api/groups"),
       requestJson<{ groups: GroupItem[] }>("/api/groups?archived=true"),
+      canManageTeachers
+        ? requestJson<{ teachers: TeacherItem[] }>("/api/teachers")
+        : Promise.resolve({ teachers: [] }),
     ])
-      .then(([active, archived]) => {
+      .then(([active, archived, teacherResult]) => {
         if (cancelled) return;
         setActiveGroups(active.groups);
         setArchivedGroups(archived.groups);
+        setTeachers(teacherResult.teachers);
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
@@ -108,7 +141,7 @@ function GroupManagementContent({ name }: { name: string }) {
     return () => {
       cancelled = true;
     };
-  }, [loadGroups]);
+  }, [canManageTeachers, loadGroups]);
 
   const visibleGroups = useMemo(() => {
     const groups = showArchived ? archivedGroups : activeGroups;
@@ -413,6 +446,28 @@ function GroupManagementContent({ name }: { name: string }) {
     }
   }
 
+  async function assignTeacher(group: GroupItem, teacherId: string) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await requestJson(`/api/groups/${group._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action: "assign-teacher", teacherId }),
+      });
+      setNotice(`“${group.name}” qrupuna müəllim təyin edildi.`);
+      await loadGroups();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Qrupa müəllim təyin etmək olmadı.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function copyInviteLink(group: GroupItem) {
     try {
       const link = `${window.location.origin}/join/${group.accessCode}`;
@@ -425,7 +480,12 @@ function GroupManagementContent({ name }: { name: string }) {
   }
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
           <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <p className="text-sm font-semibold text-brand-700">
@@ -548,6 +608,30 @@ function GroupManagementContent({ name }: { name: string }) {
                           <span className="mx-2">·</span>
                           {new Date(group.createdAt).toLocaleDateString("az-AZ")}
                         </p>
+                        {teachersCanBeAssigned ? (
+                          <label className="mt-2 flex items-center gap-2 text-sm text-muted">
+                            Müəllim
+                            <select
+                              value={group.teacherId}
+                              disabled={saving || showArchived}
+                              onChange={(event) =>
+                                void assignTeacher(group, event.currentTarget.value)
+                              }
+                              className="max-w-56 rounded-lg border border-border bg-surface px-2 py-1 text-foreground"
+                            >
+                              <option value="">Müəllim seç</option>
+                              {teachers.map((teacher) => (
+                                <option key={teacher._id} value={teacher._id}>
+                                  {teacher.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : (
+                          <p className="mt-1 text-sm text-muted">
+                            Müəllim: {group.teacherName}
+                          </p>
+                        )}
                       </div>
                     </div>
 

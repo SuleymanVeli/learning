@@ -10,8 +10,9 @@ import { requestJson } from "@/src/lib/client-api";
 
 interface DashboardShellProps {
   name: string;
-  role: "admin" | "student";
+  role: "admin" | "teacher" | "student";
   avatar?: string;
+  canManageTeachers?: boolean;
   children: ReactNode;
 }
 
@@ -19,6 +20,7 @@ export function DashboardShell({
   name,
   role,
   avatar = "/avatars/avatar-1.png",
+  canManageTeachers = false,
   children,
 }: DashboardShellProps) {
   const router = useRouter();
@@ -148,13 +150,25 @@ export function DashboardShell({
     );
   }
 
+  const teacherNavigation = [
+    { href: "/admin", label: "Panel", icon: "🏠" },
+    { href: "/admin/groups", label: "Qruplar", icon: "👥" },
+    { href: "/admin/users", label: "Şagirdlər", icon: "🎓" },
+    { href: "/admin/assignments", label: "Ev tapşırıqları", icon: "📚" },
+    { href: "/admin/live-lessons", label: "Canlı dərslər", icon: "🎮" },
+    { href: "/admin/quizzes", label: "Quizlər", icon: "🧩" },
+    { href: "/admin/tasks", label: "Ortaq tapşırıqlar", icon: "📝" },
+    { href: "/admin/ai-tasks", label: "AI ilə yarat", icon: "✨" },
+    ...(canManageTeachers
+      ? [{ href: "/admin/teachers", label: "Müəllimlər", icon: "👩‍🏫" }]
+      : []),
+    { href: "/admin/profile", label: "Profilim", icon: "⚙️" },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
-      <header
-        className="border-b border-border bg-surface"
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-surface px-4 py-6 md:flex">
+        <Link href="/admin" className="mb-9 flex items-center gap-3 px-2">
             <Image
               src="/android-chrome-192x192.png"
               alt=""
@@ -166,62 +180,64 @@ export function DashboardShell({
               <span className="block font-bold tracking-tight text-foreground">
                 BeMath
               </span>
-              <span className="block text-xs text-muted">
-                {role === "admin" ? "Müəllim paneli" : "Şagird paneli"}
-              </span>
+              <span className="block text-xs text-muted">Müəllim paneli</span>
             </span>
           </Link>
-          <div className="flex items-center gap-4">
-            {role === "admin" && (
-              <nav
-                aria-label="Əsas menyu"
-                className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1"
+        <p className="mb-3 px-3 text-xs font-bold uppercase tracking-widest text-muted">Menyu</p>
+        <nav aria-label="Müəllim menyusu" className="flex flex-col gap-1">
+          {teacherNavigation.map((item) => {
+            const active =
+              pathname === item.href ||
+              (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                  active
+                    ? "bg-brand-50 text-brand-700"
+                    : "text-muted hover:bg-surface-muted hover:text-foreground"
+                }`}
               >
-                {[
-                  { href: "/admin", label: "Panel" },
-                  { href: "/admin/quizzes", label: "Quizlər" },
-                  { href: "/admin/tasks", label: "Tapşırıqlar" },
-                  { href: "/admin/ai-tasks", label: "AI ilə yarat" },
-                  { href: "/admin/live-lessons", label: "Canlı dərslər" },
-                  { href: "/admin/assignments", label: "Ev tapşırıqları" },
-                  { href: "/admin/groups", label: "Qruplar" },
-                  { href: "/admin/users", label: "Şagirdlər" },
-                ].map((item) => {
-                  const active =
-                    pathname === item.href ||
-                    (item.href !== "/admin" &&
-                      pathname.startsWith(`${item.href}/`));
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      className={`rounded-lg px-2 py-2 text-xs font-medium transition sm:px-3 sm:text-sm ${
-                        active
-                          ? "bg-brand-50 text-brand-700"
-                          : "text-muted hover:bg-surface-muted hover:text-foreground"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
-            {(
-              <span className="hidden text-sm font-medium text-foreground sm:block">
-                {name}
-              </span>
-            )}
-            <Button variant="outline" size="sm" onClick={logout}>
-              Çıxış
-            </Button>
+                <span aria-hidden="true">{item.icon}</span>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="mt-auto flex items-center gap-3 border-t border-border pt-4">
+          <Image
+            src={avatar}
+            alt=""
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-full object-cover"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{name}</p>
+            <Link href="/admin/profile" className="text-xs text-brand-700">Profilə bax</Link>
           </div>
+          <Button variant="outline" size="sm" onClick={logout}>Çıxış</Button>
         </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {children}
-      </main>
+      </aside>
+      <div className="min-h-screen md:pl-64">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
+          <Link href="/admin" className="font-bold">BeMath · Müəllim</Link>
+          <Link href="/admin/profile" className="text-sm font-semibold">{name}</Link>
+          <Button variant="outline" size="sm" onClick={logout}>Çıxış</Button>
+        </header>
+        <nav aria-label="Müəllim menyusu" className="flex gap-2 overflow-x-auto border-b border-border bg-surface p-3 md:hidden">
+          {teacherNavigation.map((item) => (
+            <Link key={item.href} href={item.href} className="shrink-0 rounded-lg bg-surface-muted px-3 py-2 text-sm font-medium">
+              {item.icon} {item.label}
+            </Link>
+          ))}
+        </nav>
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { requireUser } from "@/src/lib/auth";
 import { parseTask } from "@/src/lib/task-validation";
 import { Quiz } from "@/src/models/Quiz";
 import { Task } from "@/src/models/Task";
+import { TeacherTaskVideo } from "@/src/models/TeacherTaskVideo";
 
 export async function POST(
   request: Request,
@@ -30,7 +31,7 @@ export async function POST(
     );
   }
 
-  const taskData = [];
+  const taskData: NonNullable<ReturnType<typeof parseTask>["value"]>[] = [];
   for (const [index, value] of body.tasks.entries()) {
     if (value === null || typeof value !== "object" || Array.isArray(value)) {
       return jsonError(`${index + 1}-ci tapşırığın JSON formatı yanlışdır.`, 400);
@@ -49,7 +50,7 @@ export async function POST(
   }
 
   await connectToDatabase();
-  const quiz = await Quiz.findOne({ _id: quizId, createdBy: admin._id });
+  const quiz = await Quiz.findById(quizId);
   if (!quiz) return jsonError("Quiz tapılmadı.", 404);
 
   const tasks = await Task.insertMany(
@@ -65,6 +66,15 @@ export async function POST(
       createdBy: admin._id,
     })),
   );
+  const taskVideos = tasks.flatMap((task, index) => {
+    const videoId = taskData[index]?.videoExplanationId;
+    return videoId
+      ? [{ teacherId: admin._id, taskId: task._id, videoId }]
+      : [];
+  });
+  if (taskVideos.length) {
+    await TeacherTaskVideo.insertMany(taskVideos);
+  }
   quiz.taskIds.push(...tasks.map((task) => task._id));
   await quiz.save();
 

@@ -7,7 +7,12 @@ export function AdminDashboard() {
   return (
     <RoleGate role="admin">
       {(user) => (
-        <DashboardShell name={user.name} role="admin">
+        <DashboardShell
+          name={user.name}
+          role="admin"
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+        >
           <div aria-hidden="true" />
         </DashboardShell>
       )}

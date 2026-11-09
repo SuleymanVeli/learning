@@ -48,12 +48,26 @@ function parseAnswerIndexes(answer: string) {
 export function AiTaskGenerator() {
   return (
     <RoleGate role="admin">
-      {(user) => <AiTaskGeneratorContent name={user.name} />}
+      {(user) => (
+        <AiTaskGeneratorContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function AiTaskGeneratorContent({ name }: { name: string }) {
+function AiTaskGeneratorContent({
+  name,
+  avatar,
+  canManageTeachers,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+}) {
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [quizId, setQuizId] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -230,7 +244,12 @@ function AiTaskGeneratorContent({ name }: { name: string }) {
   }
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-7">
         <p className="text-sm font-semibold text-brand-700">İdarəetmə / Tapşırıqlar</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">

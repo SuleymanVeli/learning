@@ -5,7 +5,7 @@ import {
   isNonEmptyString,
   readJsonObject,
 } from "@/src/lib/api";
-import { requireUser } from "@/src/lib/auth";
+import { requireUser, teacherGroupScope } from "@/src/lib/auth";
 import { Assignment } from "@/src/models/Assignment";
 import { Group } from "@/src/models/Group";
 import { Task } from "@/src/models/Task";
@@ -16,7 +16,12 @@ export async function GET() {
   if (admin instanceof Response) return admin;
 
   await connectToDatabase();
-  const assignments = await Assignment.find({ createdBy: admin._id })
+  const groups = await Group.find({
+    ...teacherGroupScope(admin),
+  }).select("_id");
+  const assignments = await Assignment.find({
+    groupId: { $in: groups.map((group) => group._id) },
+  })
     .populate("groupId", "name")
     .populate("taskIds", "title type")
     .sort({ createdAt: -1 })
@@ -61,17 +66,17 @@ export async function POST(request: Request) {
   await connectToDatabase();
   const taskIds =
     body.quizIds !== undefined
-      ? await resolveQuizTaskIds(body.quizIds, admin._id)
+      ? await resolveQuizTaskIds(body.quizIds)
       : [...new Set(body.taskIds as string[])];
   if (!taskIds) return jsonError("Quiz tapılmadı və ya boşdur.", 404);
 
   const [group, tasks] = await Promise.all([
     Group.findOne({
       _id: body.groupId,
-      adminId: admin._id,
+      ...teacherGroupScope(admin),
       archivedAt: null,
     }).select("_id"),
-    Task.find({ _id: { $in: taskIds }, createdBy: admin._id }).select("_id"),
+    Task.find({ _id: { $in: taskIds } }).select("_id"),
   ]);
   if (!group) return jsonError("Qrup tapılmadı.", 404);
   if (tasks.length !== taskIds.length) {

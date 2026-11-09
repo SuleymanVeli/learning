@@ -81,12 +81,7 @@ const taskSchema = new Schema<TaskDocument>(
     },
     correctAnswer: { type: Schema.Types.Mixed, required: true, select: false },
     explanation: { type: String, trim: true, maxlength: 5000, select: false },
-    videoExplanationId: {
-      type: String,
-      trim: true,
-      maxlength: 36,
-      select: false,
-    },
+    videoExplanationId: { type: String, trim: true, maxlength: 36 },
     difficulty: {
       type: String,
       enum: ["easy", "medium", "hard"],

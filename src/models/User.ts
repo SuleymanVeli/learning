@@ -1,6 +1,6 @@
 import mongoose, { Schema, type Document, type Types } from "mongoose";
 
-export type UserRole = "admin" | "student";
+export type UserRole = "admin" | "teacher" | "student";
 export type ApprovalStatus = "pending" | "approved";
 
 export interface UserDocument extends Document {
@@ -32,7 +32,7 @@ const userSchema = new Schema<UserDocument>(
     passwordHash: { type: String, required: true, select: false },
     role: {
       type: String,
-      enum: ["admin", "student"],
+      enum: ["admin", "teacher", "student"],
       required: true,
       default: "student",
     },

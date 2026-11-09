@@ -34,7 +34,7 @@ export async function PATCH(
   }
 
   await connectToDatabase();
-  const quiz = await Quiz.findOne({ _id: quizId, createdBy: admin._id });
+  const quiz = await Quiz.findById(quizId);
   if (!quiz) return jsonError("Quiz tapılmadı.", 404);
   let taskIds: string[] | undefined;
   if (body.taskIds !== undefined) {
@@ -42,7 +42,6 @@ export async function PATCH(
     const tasks = taskIds.length
       ? await Task.find({
           _id: { $in: taskIds },
-          createdBy: admin._id,
           $or: [{ archivedAt: null }, { archivedAt: { $exists: false } }],
         }).select("_id")
       : [];
@@ -88,10 +87,7 @@ export async function DELETE(
   }
 
   await connectToDatabase();
-  const quiz = await Quiz.findOneAndDelete({
-    _id: quizId,
-    createdBy: admin._id,
-  });
+  const quiz = await Quiz.findByIdAndDelete(quizId);
   if (!quiz) return jsonError("Quiz tapılmadı.", 404);
   return Response.json({ success: true });
 }

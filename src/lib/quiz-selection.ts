@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
 import { Quiz } from "@/src/models/Quiz";
 
-export async function resolveQuizTaskIds(
-  quizIds: unknown,
-  createdBy: mongoose.Types.ObjectId,
-) {
+export async function resolveQuizTaskIds(quizIds: unknown) {
   if (
     !Array.isArray(quizIds) ||
     quizIds.length === 0 ||
@@ -20,10 +17,9 @@ export async function resolveQuizTaskIds(
   const normalizedQuizIds = quizIds.map((id: string) =>
     new mongoose.Types.ObjectId(id).toString(),
   );
-  const quizzes = await Quiz.find({
-    _id: { $in: normalizedQuizIds },
-    createdBy,
-  }).select("taskIds");
+  const quizzes = await Quiz.find({ _id: { $in: normalizedQuizIds } }).select(
+    "taskIds",
+  );
   if (quizzes.length !== normalizedQuizIds.length) return null;
 
   const taskIds = new Set<string>();

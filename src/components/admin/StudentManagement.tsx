@@ -37,12 +37,26 @@ type StudentAction =
 export function StudentManagement() {
   return (
     <RoleGate role="admin">
-      {(user) => <StudentManagementContent name={user.name} />}
+      {(user) => (
+        <StudentManagementContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function StudentManagementContent({ name }: { name: string }) {
+function StudentManagementContent({
+  name,
+  avatar,
+  canManageTeachers,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+}) {
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
@@ -232,7 +246,12 @@ function StudentManagementContent({ name }: { name: string }) {
   }
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-brand-700">

@@ -21,7 +21,8 @@ export function publicUser(user: UserDocument) {
     name: user.name,
     email: user.email,
     avatar: user.avatar ?? "/avatars/avatar-1.png",
-    role: user.role,
+    role: user.role === "admin" ? "teacher" : user.role,
+    canManageTeachers: user.role === "admin",
     approvalStatus: user.approvalStatus ?? "approved",
     groupIds: user.groupIds.map((id) => id.toString()),
   };
@@ -140,7 +141,11 @@ export async function requireUser(
   if ((user.authVersion ?? 0) !== session.version) {
     return jsonError("Sessiya etibarsızdır. Yenidən daxil olun.", 401);
   }
-  if (role && user.role !== role) {
+  if (
+    role &&
+    user.role !== role &&
+    !(role === "admin" && user.role === "teacher")
+  ) {
     return jsonError("Bu əməliyyat üçün icazəniz yoxdur.", 403);
   }
   if (
@@ -150,4 +155,23 @@ export async function requireUser(
     return jsonError("Hesabınız administrator tərəfindən təsdiqlənməyib.", 403);
   }
   return user;
+}
+
+export async function requireTeacher(): Promise<UserDocument | Response> {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
+  if (user.role !== "admin" && user.role !== "teacher") {
+    return jsonError("Bu əməliyyat üçün müəllim girişi tələb olunur.", 403);
+  }
+  return user;
+}
+
+export function teacherGroupScope(user: UserDocument) {
+  if (user.role === "admin") return {};
+  return {
+    $or: [
+      { teacherId: user._id },
+      { teacherId: { $exists: false }, adminId: user._id },
+    ],
+  };
 }

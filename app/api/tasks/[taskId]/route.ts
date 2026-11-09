@@ -3,8 +3,13 @@ import { connectToDatabase } from "@/src/lib/mongodb";
 import { jsonError, readJsonObject } from "@/src/lib/api";
 import { requireUser } from "@/src/lib/auth";
 import { parseTask } from "@/src/lib/task-validation";
+import {
+  parseTeacherVideoUpdates,
+  syncTeacherTaskVideos,
+} from "@/src/lib/teacher-task-videos";
 import { Quiz } from "@/src/models/Quiz";
 import { Task } from "@/src/models/Task";
+import { TeacherTaskVideo } from "@/src/models/TeacherTaskVideo";
 
 export async function PATCH(
   request: Request,
@@ -26,16 +31,21 @@ export async function PATCH(
   const taskData = parsed.value;
 
   await connectToDatabase();
-  const [task, quiz] = await Promise.all([
-    Task.findOne({
+  const videoUpdates = await parseTeacherVideoUpdates(admin, body);
+  if (videoUpdates instanceof Response) return videoUpdates;
+  const task = await Task.findOne({
       _id: taskId,
-      createdBy: admin._id,
       $or: [{ archivedAt: null }, { archivedAt: { $exists: false } }],
-    }),
-    Quiz.findOne({ _id: taskData.quizId, createdBy: admin._id }),
-  ]);
+    });
   if (!task) return jsonError("Tapşırıq tapılmadı.", 404);
-  if (!quiz) return jsonError("Seçilən quiz tapılmadı.", 404);
+  const quiz = taskData.quizId
+    ? await Quiz.findOne({
+        _id: taskData.quizId,
+      })
+    : null;
+  if (taskData.quizId && !quiz) {
+    return jsonError("Seçilən quiz tapılmadı.", 404);
+  }
 
   task.title = taskData.title;
   task.prompt = taskData.prompt;
@@ -44,14 +54,33 @@ export async function PATCH(
   task.options = taskData.options;
   task.correctAnswer = taskData.correctAnswer;
   task.explanation = taskData.explanation;
-  task.videoExplanationId = taskData.videoExplanationId;
   task.difficulty = taskData.difficulty;
   await task.save();
-  await Quiz.updateOne(
-    { _id: quiz._id },
-    { $addToSet: { taskIds: task._id } },
-  );
-  return Response.json({ task });
+  await syncTeacherTaskVideos(task._id, videoUpdates);
+  if (
+    videoUpdates.some(({ teacherId }) => task.createdBy.equals(teacherId)) &&
+    task.videoExplanationId
+  ) {
+    await Task.updateOne(
+      { _id: task._id },
+      { $unset: { videoExplanationId: 1 } },
+    );
+    task.videoExplanationId = undefined;
+  }
+  if (quiz) {
+    await Quiz.updateOne(
+      { _id: quiz._id },
+      { $addToSet: { taskIds: task._id } },
+    );
+  }
+  return Response.json({
+    task: {
+      ...task.toObject(),
+      videoExplanationId: task.createdBy.equals(admin._id)
+        ? task.videoExplanationId
+        : undefined,
+    },
+  });
 }
 
 export async function DELETE(
@@ -70,7 +99,6 @@ export async function DELETE(
   const task = await Task.findOneAndUpdate(
     {
       _id: taskId,
-      createdBy: admin._id,
       $or: [{ archivedAt: null }, { archivedAt: { $exists: false } }],
     },
     { $set: { archivedAt: new Date() } },
@@ -79,8 +107,9 @@ export async function DELETE(
   if (!task) return jsonError("Tapşırıq tapılmadı.", 404);
 
   await Quiz.updateMany(
-    { createdBy: admin._id, taskIds: task._id },
+    { taskIds: task._id },
     { $pull: { taskIds: task._id } },
   );
+  await TeacherTaskVideo.deleteMany({ taskId: task._id });
   return Response.json({ success: true });
 }

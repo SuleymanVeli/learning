@@ -10,7 +10,7 @@ import { ApiError, requestJson } from "@/src/lib/client-api";
 
 interface LoginResponse {
   user: {
-    role: "admin" | "student";
+    role: "admin" | "teacher" | "student";
     approvalStatus: "pending" | "approved";
   };
 }
@@ -24,14 +24,14 @@ export default function LoginPage() {
     let cancelled = false;
     requestJson<{
       user: {
-        role: "admin" | "student";
+        role: "admin" | "teacher" | "student";
         approvalStatus: "pending" | "approved";
       };
     }>("/api/auth/me")
       .then(({ user }) => {
         if (!cancelled) {
           router.replace(
-            user.role === "admin"
+            user.role === "admin" || user.role === "teacher"
               ? "/admin"
               : user.approvalStatus === "pending"
                 ? "/student/pending"
@@ -68,7 +68,7 @@ export default function LoginPage() {
         }),
       });
       router.replace(
-        user.role === "admin"
+        user.role === "admin" || user.role === "teacher"
           ? "/admin"
           : user.approvalStatus === "pending"
             ? "/student/pending"

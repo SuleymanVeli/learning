@@ -70,12 +70,26 @@ async function fetchManagementData(): Promise<ManagementData> {
 export function AdminHomeworkManagement() {
   return (
     <RoleGate role="admin">
-      {(user) => <AdminHomeworkContent name={user.name} />}
+      {(user) => (
+        <AdminHomeworkContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function AdminHomeworkContent({ name }: { name: string }) {
+function AdminHomeworkContent({
+  name,
+  avatar,
+  canManageTeachers,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+}) {
   const [data, setData] = useState(emptyData);
   const [title, setTitle] = useState("");
   const [groupId, setGroupId] = useState("");
@@ -187,7 +201,12 @@ function AdminHomeworkContent({ name }: { name: string }) {
   );
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-brand-700">İdarəetmə</p>
@@ -279,7 +298,11 @@ function AdminHomeworkContent({ name }: { name: string }) {
           <Button
             type="submit"
             className="md:col-span-2 md:w-fit"
-            disabled={saving || !data.groups.length || !quizIds.length}
+            disabled={
+              saving ||
+              !data.groups.length ||
+              !quizIds.length
+            }
           >
             {saving ? "Dərc olunur..." : "Ev tapşırığını dərc et"}
           </Button>

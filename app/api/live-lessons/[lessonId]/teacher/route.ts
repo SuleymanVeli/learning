@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import { jsonError } from "@/src/lib/api";
-import { requireUser } from "@/src/lib/auth";
+import { requireUser, teacherGroupScope } from "@/src/lib/auth";
+import { Group } from "@/src/models/Group";
 import { LiveLesson } from "@/src/models/LiveLesson";
 import { Task } from "@/src/models/Task";
 import { sanitizeTaskContentBlocks } from "@/src/lib/task-content-html";
@@ -21,11 +22,19 @@ export async function GET(
   await connectToDatabase();
   const lesson = await LiveLesson.findOne({
     _id: lessonId,
-    createdBy: admin._id,
   })
     .populate("groupId", "name")
     .lean();
   if (!lesson) return jsonError("Canlı dərs tapılmadı.", 404);
+  if (
+    admin.role !== "admin" &&
+    !(await Group.exists({
+      _id: lesson.groupId._id,
+      ...teacherGroupScope(admin),
+    }))
+  ) {
+    return jsonError("Canlı dərs tapılmadı.", 404);
+  }
 
   const taskRows = await Task.find({ _id: { $in: lesson.taskIds } })
     .select("title prompt contentBlocks type options explanation +correctAnswer")

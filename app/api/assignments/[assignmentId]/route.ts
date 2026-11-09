@@ -1,13 +1,14 @@
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import { jsonError, readJsonObject } from "@/src/lib/api";
-import { requireUser } from "@/src/lib/auth";
+import { requireUser, teacherGroupScope } from "@/src/lib/auth";
 import { isCorrectAnswer, isValidAnswer } from "@/src/lib/quiz";
 import { Assignment } from "@/src/models/Assignment";
 import { Group } from "@/src/models/Group";
 import { HomeworkSubmission } from "@/src/models/HomeworkSubmission";
 import { Task, type TaskDocument } from "@/src/models/Task";
 import { User } from "@/src/models/User";
+import { TeacherTaskVideo } from "@/src/models/TeacherTaskVideo";
 import { signBunnyStreamEmbedUrl } from "@/src/lib/bunny-stream";
 import { sanitizeTaskContentBlocks } from "@/src/lib/task-content-html";
 
@@ -31,18 +32,18 @@ export async function GET(
     publishedAt: { $ne: null },
   }).lean();
   if (!assignment) return jsonError("Ev tapşırığı tapılmadı.", 404);
-
-  let assignmentGroup: { studentIds: mongoose.Types.ObjectId[] } | null = null;
+  let assignmentGroup: {
+    studentIds: mongoose.Types.ObjectId[];
+    teacherId?: mongoose.Types.ObjectId;
+    adminId: mongoose.Types.ObjectId;
+  } | null = null;
   if (isAdmin) {
-    if (assignment.createdBy.toString() !== user._id.toString()) {
-      return jsonError("Ev tapşırığı tapılmadı.", 404);
-    }
     assignmentGroup = await Group.findOne({
       _id: assignment.groupId,
-      adminId: user._id,
+      ...teacherGroupScope(user),
       archivedAt: null,
     })
-      .select("studentIds")
+      .select("studentIds teacherId adminId")
       .lean();
   } else {
     assignmentGroup = await Group.findOne({
@@ -50,7 +51,7 @@ export async function GET(
       studentIds: user._id,
       archivedAt: null,
     })
-      .select("studentIds")
+      .select("studentIds teacherId adminId")
       .lean();
     if (!assignmentGroup)
       return jsonError("Bu ev tapşırığına giriş icazəniz yoxdur.", 403);
@@ -62,8 +63,8 @@ export async function GET(
     Task.find({ _id: { $in: assignment.taskIds } })
       .select(
         isAdmin
-          ? "title prompt contentBlocks type options explanation +correctAnswer +videoExplanationId"
-          : "title prompt contentBlocks type options +videoExplanationId",
+          ? "title prompt contentBlocks type options explanation videoExplanationId +correctAnswer"
+          : "title prompt contentBlocks type options videoExplanationId createdBy",
       )
       .lean(),
     HomeworkSubmission.find({
@@ -160,16 +161,37 @@ export async function GET(
     return { ...student, rank: currentRank };
   });
 
+  const assignedTeacherId = assignmentGroup.teacherId ?? assignmentGroup.adminId;
+  const taskVideoRows =
+    !isAdmin && orderedTasks.length > 0
+      ? await TeacherTaskVideo.find({
+          teacherId: assignedTeacherId,
+          taskId: { $in: orderedTasks.map((task) => task._id) },
+        })
+          .select("taskId videoId")
+          .lean()
+      : [];
+  const videoIds = new Map(
+    taskVideoRows.map((video) => [video.taskId.toString(), video.videoId]),
+  );
+  if (!isAdmin) {
+    for (const task of orderedTasks) {
+      const taskId = task._id.toString();
+      if (
+        !videoIds.has(taskId) &&
+        task.createdBy?.equals(assignedTeacherId) &&
+        task.videoExplanationId
+      ) {
+        videoIds.set(taskId, task.videoExplanationId);
+      }
+    }
+  }
   const tasksWithSubmittedVideos = isAdmin
     ? []
     : orderedTasks.filter(
-        (
-          task,
-        ): task is TaskDocument & { videoExplanationId: string } =>
-          Boolean(
-            task.videoExplanationId &&
-              (submissionsByTask.get(task._id.toString())?.length ?? 0) > 0,
-          ),
+        (task) =>
+          videoIds.has(task._id.toString()) &&
+          (submissionsByTask.get(task._id.toString())?.length ?? 0) > 0,
       );
   const signedVideoUrls = new Map<string, string>();
   if (tasksWithSubmittedVideos.length > 0) {
@@ -182,9 +204,17 @@ export async function GET(
       );
     }
     for (const task of tasksWithSubmittedVideos) {
+      const videoId = videoIds.get(task._id.toString());
+      if (!videoId) {
+        throw new Error("Tapşırığın müəllim videosu tapılmadı.");
+      }
       signedVideoUrls.set(
         task._id.toString(),
-        signBunnyStreamEmbedUrl(task.videoExplanationId, libraryId, tokenKey),
+        signBunnyStreamEmbedUrl(
+          videoId,
+          libraryId,
+          tokenKey,
+        ),
       );
     }
   }
@@ -198,19 +228,16 @@ export async function GET(
     },
     leaderboard,
     tasks: orderedTasks.map((task) => {
+      const { createdBy: _createdBy, ...taskFields } = task;
       const taskSubmissions = submissionsByTask.get(task._id.toString()) ?? [];
-      const {
-        videoExplanationId: storedVideoExplanationId,
-        ...taskFields
-      } = task;
       return {
         ...taskFields,
+        videoExplanationId: undefined,
         contentBlocks: sanitizeTaskContentBlocks(task.contentBlocks),
         ...(isAdmin
           ? {
               correctAnswer: task.correctAnswer,
               explanation: task.explanation,
-              videoExplanationId: storedVideoExplanationId,
             }
           : signedVideoUrls.has(task._id.toString())
             ? {
@@ -414,9 +441,17 @@ export async function PATCH(
   await connectToDatabase();
   const assignment = await Assignment.findOne({
     _id: assignmentId,
-    createdBy: admin._id,
-  }).select("taskIds");
+  }).select("taskIds groupId");
   if (!assignment) return jsonError("Ev tapşırığı tapılmadı.", 404);
+  if (
+    admin.role !== "admin" &&
+    !(await Group.exists({
+      _id: assignment.groupId,
+      ...teacherGroupScope(admin),
+    }))
+  ) {
+    return jsonError("Ev tapşırığı tapılmadı.", 404);
+  }
 
   const taskId = new mongoose.Types.ObjectId(body.taskId);
   if (
@@ -478,18 +513,25 @@ export async function DELETE(
     await session.withTransaction(async () => {
       const assignment = await Assignment.findOne({
         _id: assignmentId,
-        createdBy: admin._id,
       })
-        .select("_id")
+        .select("_id groupId")
         .session(session);
       if (!assignment) return;
+      if (
+        admin.role !== "admin" &&
+        !(await Group.exists({
+          _id: assignment.groupId,
+          ...teacherGroupScope(admin),
+        }).session(session))
+      ) {
+        return;
+      }
 
       await HomeworkSubmission.deleteMany({
         assignmentId: assignment._id,
       }).session(session);
       const result = await Assignment.deleteOne({
         _id: assignment._id,
-        createdBy: admin._id,
       }).session(session);
       if (result.deletedCount !== 1) {
         throw new Error("Ev tapşırığını silmək mümkün olmadı.");

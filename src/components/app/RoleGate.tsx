@@ -9,12 +9,13 @@ interface CurrentUser {
   name: string;
   email: string;
   avatar: string;
-  role: "admin" | "student";
+  role: "admin" | "teacher" | "student";
+  canManageTeachers: boolean;
   approvalStatus: "pending" | "approved";
 }
 
 interface RoleGateProps {
-  role: CurrentUser["role"];
+  role: "admin" | "teacher" | "student";
   children: (user: CurrentUser) => ReactNode;
 }
 
@@ -28,8 +29,10 @@ export function RoleGate({ role, children }: RoleGateProps) {
     requestJson<{ user: CurrentUser }>("/api/auth/me")
       .then(({ user: currentUser }) => {
         if (cancelled) return;
-        if (currentUser.role !== role) {
-          router.replace(currentUser.role === "admin" ? "/admin" : "/student");
+        const isTeacher =
+          currentUser.role === "admin" || currentUser.role === "teacher";
+        if ((role === "student" && isTeacher) || (role !== "student" && !isTeacher)) {
+          router.replace(isTeacher ? "/admin" : "/student");
           return;
         }
         if (

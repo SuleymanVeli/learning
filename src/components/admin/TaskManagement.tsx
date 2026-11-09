@@ -33,6 +33,11 @@ interface TaskItem {
   correctAnswer: string | string[];
   explanation?: string;
   videoExplanationId?: string;
+  videoExplanations?: {
+    teacherId: string;
+    teacherName: string;
+    videoId: string;
+  }[];
   difficulty: "easy" | "medium" | "hard";
   quizzes: QuizOption[];
 }
@@ -41,6 +46,11 @@ interface QuizItem {
   _id: string;
   title: string;
   taskIds: string[];
+}
+
+interface TeacherOption {
+  _id: string;
+  name: string;
 }
 
 type TaskType = "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
@@ -52,12 +62,29 @@ const TASKS_PER_PAGE = 10;
 export function TaskManagement() {
   return (
     <RoleGate role="admin">
-      {(user) => <TaskManagementContent name={user.name} />}
+      {(user) => (
+        <TaskManagementContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+          userId={user.id}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function TaskManagementContent({ name }: { name: string }) {
+function TaskManagementContent({
+  name,
+  avatar,
+  canManageTeachers,
+  userId,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+  userId: string;
+}) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,27 +98,24 @@ function TaskManagementContent({ name }: { name: string }) {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [previewTask, setPreviewTask] = useState<TaskItem | null>(null);
   const [deletingTask, setDeletingTask] = useState<TaskItem | null>(null);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [videoTeacherId, setVideoTeacherId] = useState(userId);
 
   const load = useCallback(async () => {
     const [taskResult, quizResult] = await Promise.all([
-      requestJson<{ tasks: TaskItem[] }>("/api/tasks"),
+      requestJson<{ tasks: TaskItem[] }>(
+        `/api/tasks?videoTeacherId=${encodeURIComponent(videoTeacherId)}`,
+      ),
       requestJson<{ quizzes: QuizItem[] }>("/api/quizzes"),
     ]);
     setTasks(taskResult.tasks);
     setQuizzes(quizResult.quizzes);
-  }, []);
+  }, [videoTeacherId]);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      requestJson<{ tasks: TaskItem[] }>("/api/tasks"),
-      requestJson<{ quizzes: QuizItem[] }>("/api/quizzes"),
-    ])
-      .then(([taskResult, quizResult]) => {
-        if (cancelled) return;
-        setTasks(taskResult.tasks);
-        setQuizzes(quizResult.quizzes);
-      })
+    setLoading(true);
+    load()
       .catch((cause: unknown) => {
         if (!cancelled) {
           setError(
@@ -102,10 +126,23 @@ function TaskManagementContent({ name }: { name: string }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    if (canManageTeachers) {
+      requestJson<{ teachers: TeacherOption[] }>("/api/teachers")
+        .then((result) => {
+          if (!cancelled) setTeachers(result.teachers);
+        })
+        .catch((cause: unknown) => {
+          if (!cancelled) {
+            setError(
+              cause instanceof Error ? cause.message : "Müəllimləri yükləmək olmadı.",
+            );
+          }
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canManageTeachers, load]);
 
   const filteredTasks = tasks.filter((task) => {
     const query = search.trim().toLocaleLowerCase();
@@ -214,7 +251,7 @@ function TaskManagementContent({ name }: { name: string }) {
     }
 
     const quizId = String(form.get("quizId") ?? "");
-    if (!quizId) {
+    if (!quizId && modal.type === "create") {
       setError("Tapşırığın aid olacağı quiz-i seç.");
       return;
     }
@@ -238,6 +275,14 @@ function TaskManagementContent({ name }: { name: string }) {
     setSaving(true);
     setError("");
     setNotice("");
+    const videoExplanations = canManageTeachers
+      ? teachers.map((teacher) => ({
+          teacherId: teacher._id,
+          videoId: String(
+            form.get(`videoExplanationId-${teacher._id}`) ?? "",
+          ),
+        }))
+      : undefined;
     try {
       const isEdit = modal.type === "edit";
       await requestJson(
@@ -253,10 +298,13 @@ function TaskManagementContent({ name }: { name: string }) {
             correctAnswer,
             explanation:
               modal.type === "edit" ? modal.task.explanation ?? "" : "",
-            videoExplanationId: form.get("videoExplanationId"),
+            ...(canManageTeachers
+              ? { videoExplanations }
+              : { videoExplanationId: form.get("videoExplanationId") }),
+            videoTeacherId: userId,
             difficulty:
               modal.type === "edit" ? modal.task.difficulty : "medium",
-            quizId,
+            quizId: quizId || undefined,
           }),
         },
       );
@@ -322,7 +370,12 @@ function TaskManagementContent({ name }: { name: string }) {
   }
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-brand-700">
@@ -383,7 +436,27 @@ function TaskManagementContent({ name }: { name: string }) {
               və sil
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div
+            className={`grid gap-3 ${
+              canManageTeachers ? "sm:grid-cols-3" : "sm:grid-cols-2"
+            }`}
+          >
+            {canManageTeachers && (
+              <Select
+                label="Videolara baxılan müəllim"
+                value={videoTeacherId}
+                onChange={(event) => {
+                  setVideoTeacherId(event.currentTarget.value);
+                  setTaskPage(1);
+                }}
+              >
+                {teachers.map((teacher) => (
+                  <option key={teacher._id} value={teacher._id}>
+                    {teacher.name}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Select
               label="Quiz üzrə süzgəc"
               value={selectedQuizFilter}
@@ -513,11 +586,13 @@ function TaskManagementContent({ name }: { name: string }) {
       </Card>
 
       <TaskFormModal
-        key={`${modal?.type ?? "closed"}-${
+        key={`${modal?.type ?? "closed"}-${videoTeacherId}-${
           modal?.type === "edit" ? modal.task._id : ""
         }`}
         modal={modal}
         quizzes={quizzes}
+        teachers={teachers}
+        canManageTeachers={canManageTeachers}
         saving={saving}
         error={error}
         onClose={() => setModal(null)}
@@ -557,9 +632,25 @@ function TaskManagementContent({ name }: { name: string }) {
               options,
               correctAnswer,
               explanation: task.explanation,
-              videoExplanationId: task.videoExplanationId,
+              ...(canManageTeachers
+                ? {
+                    videoExplanations: teachers.map((teacher) => ({
+                      teacherId: teacher._id,
+                      videoId:
+                        task.videoExplanations?.find(
+                          (video) => video.teacherId === teacher._id,
+                        )?.videoId ?? "",
+                    })),
+                  }
+                : {
+                    videoExplanationId: task.videoExplanationId,
+                    videoTeacherId: userId,
+                  }),
               difficulty: task.difficulty,
-              quizId: task.quizzes[0]?.id,
+              quizId:
+                quizzes.find((quiz) =>
+                  task.quizzes.some((item) => item.id === quiz._id),
+                )?._id,
             }),
           });
           setPreviewTask(null);
@@ -926,6 +1017,8 @@ function OptionDimensions({
 function TaskFormModal({
   modal,
   quizzes,
+  teachers,
+  canManageTeachers,
   saving,
   error,
   onClose,
@@ -933,6 +1026,8 @@ function TaskFormModal({
 }: {
   modal: TaskModal | null;
   quizzes: QuizItem[];
+  teachers: TeacherOption[];
+  canManageTeachers: boolean;
   saving: boolean;
   error: string;
   onClose: () => void;
@@ -978,7 +1073,9 @@ function TaskFormModal({
       ? task.correctAnswer
       : "";
   const quizId =
-    task?.quizzes[0]?.id ??
+    task?.quizzes.find((item) =>
+      quizzes.some((quiz) => quiz._id === item.id),
+    )?.id ??
     (modal?.type === "create" ? modal.quizId : undefined) ??
     "";
 
@@ -1009,7 +1106,7 @@ function TaskFormModal({
               label="Aid olduğu quiz"
               name="quizId"
               defaultValue={quizId}
-              required
+              required={modal.type === "create"}
             >
               <option value="">Quiz seç</option>
               {quizzes.map((quiz) => (
@@ -1134,22 +1231,47 @@ function TaskFormModal({
               required
             />
           )}
-          <div className="space-y-1.5">
-            <Input
-              label="Bunny Stream video ID-si (istəyə bağlı)"
-              name="videoExplanationId"
-              defaultValue={task?.videoExplanationId ?? ""}
-              maxLength={36}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              disabled={saving}
-            />
+          <div className="space-y-3">
+            {canManageTeachers ? (
+              teachers.map((teacher) => (
+                <Input
+                  key={teacher._id}
+                  label={`${teacher.name} üçün Bunny Stream video ID-si (istəyə bağlı)`}
+                  name={`videoExplanationId-${teacher._id}`}
+                  defaultValue={
+                    task?.videoExplanations?.find(
+                      (video) => video.teacherId === teacher._id,
+                    )?.videoId ?? ""
+                  }
+                  maxLength={36}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  disabled={saving}
+                />
+              ))
+            ) : (
+              <Input
+                label="Bunny Stream video ID-si (istəyə bağlı)"
+                name="videoExplanationId"
+                defaultValue={task?.videoExplanationId ?? ""}
+                maxLength={36}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                disabled={saving}
+              />
+            )}
             <p className="text-xs text-muted">
               Bu video yalnız ev tapşırığında cavab göndərildikdən sonra görünəcək.
               Bunny Stream-də videonun ID-sini daxil edin.
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="submit" disabled={saving || !quizzes.length}>
+            <Button
+              type="submit"
+              disabled={
+                saving ||
+                !quizzes.length ||
+                (canManageTeachers && !teachers.length)
+              }
+            >
               {saving
                 ? "Yadda saxlanılır..."
                 : task

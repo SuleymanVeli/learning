@@ -10,7 +10,7 @@ export async function GET() {
   if (admin instanceof Response) return admin;
 
   await connectToDatabase();
-  const quizzes = await Quiz.find({ createdBy: admin._id })
+  const quizzes = await Quiz.find({})
     .populate("taskIds", "title type difficulty")
     .sort({ createdAt: -1 })
     .lean();
@@ -43,7 +43,6 @@ export async function POST(request: Request) {
   const tasks = taskIds.length
     ? await Task.find({
         _id: { $in: taskIds },
-        createdBy: admin._id,
         $or: [{ archivedAt: null }, { archivedAt: { $exists: false } }],
       }).select("_id")
     : [];

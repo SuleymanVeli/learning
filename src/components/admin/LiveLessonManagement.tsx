@@ -42,12 +42,26 @@ const LESSONS_PER_PAGE = 10;
 export function LiveLessonManagement() {
   return (
     <RoleGate role="admin">
-      {(user) => <LiveLessonContent name={user.name} />}
+      {(user) => (
+        <LiveLessonContent
+          name={user.name}
+          avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
+        />
+      )}
     </RoleGate>
   );
 }
 
-function LiveLessonContent({ name }: { name: string }) {
+function LiveLessonContent({
+  name,
+  avatar,
+  canManageTeachers,
+}: {
+  name: string;
+  avatar: string;
+  canManageTeachers: boolean;
+}) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [archivedGroups, setArchivedGroups] = useState<Group[]>([]);
@@ -261,7 +275,12 @@ function LiveLessonContent({ name }: { name: string }) {
   );
 
   return (
-    <DashboardShell name={name} role="admin">
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-brand-700">İdarəetmə</p>
@@ -352,10 +371,10 @@ function LiveLessonContent({ name }: { name: string }) {
               </div>
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 {lesson.status === "draft" && (
-                  <>
-                    <Button size="sm" onClick={() => void action(lesson, "start")}>Başla</Button>
-                    <Button size="sm" variant="outline" onClick={() => { setError(""); setEditing(lesson); }}>Redaktə</Button>
-                  </>
+                  <Button size="sm" onClick={() => void action(lesson, "start")}>Başla</Button>
+                )}
+                {lesson.status !== "live" && (
+                  <Button size="sm" variant="outline" onClick={() => { setError(""); setEditing(lesson); }}>Redaktə</Button>
                 )}
                 {lesson.status === "live" && (
                   <Button size="sm" variant="danger" onClick={() => void action(lesson, "end")}>Bitir</Button>
@@ -524,8 +543,17 @@ function LessonModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const selectedGroupId =
-    typeof lesson?.groupId === "string" ? lesson.groupId : lesson?.groupId._id;
+  const lessonGroup =
+    lesson && typeof lesson.groupId !== "string" ? lesson.groupId : null;
+  const selectedGroupId = lesson
+    ? typeof lesson.groupId === "string"
+      ? lesson.groupId
+      : lessonGroup?._id
+    : undefined;
+  const selectableGroups =
+    lessonGroup && !groups.some((group) => group._id === lessonGroup._id)
+      ? [...groups, lessonGroup]
+      : groups;
   return (
     <Modal
       open={open}
@@ -537,7 +565,7 @@ function LessonModal({
         <Input label="Dərsin adı" name="title" defaultValue={lesson?.title ?? ""} maxLength={200} required />
         <Select label="Qrup" name="groupId" defaultValue={selectedGroupId ?? ""} required>
           <option value="">Qrup seç</option>
-          {groups.map((group) => <option key={group._id} value={group._id}>{group.name}</option>)}
+          {selectableGroups.map((group) => <option key={group._id} value={group._id}>{group.name}</option>)}
         </Select>
         <label className="block">
           <span className="mb-2 block text-sm font-medium">Quizlər və tablar</span>

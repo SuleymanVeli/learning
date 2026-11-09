@@ -5,6 +5,7 @@ export interface GroupDocument extends Document {
   accessCode: string;
   inviteEnabled: boolean;
   adminId: Types.ObjectId;
+  teacherId?: Types.ObjectId;
   studentIds: Types.ObjectId[];
   archivedAt?: Date | null;
   createdAt: Date;
@@ -28,6 +29,11 @@ const groupSchema = new Schema<GroupDocument>(
       required: true,
       index: true,
     },
+    teacherId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
     studentIds: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [] },
     archivedAt: { type: Date, default: null, index: true },
   },
@@ -35,6 +41,7 @@ const groupSchema = new Schema<GroupDocument>(
 );
 
 groupSchema.index({ adminId: 1, archivedAt: 1, createdAt: -1 });
+groupSchema.index({ teacherId: 1, archivedAt: 1, createdAt: -1 });
 
 export const Group =
   mongoose.models.Group || mongoose.model<GroupDocument>("Group", groupSchema);

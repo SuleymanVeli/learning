@@ -34,6 +34,12 @@ The app writes only lesson update timestamps to Realtime Database; answers,
 correctness, and task content remain in MongoDB. To let browsers subscribe to
 these non-sensitive signals, configure Realtime Database rules as follows:
 
+The existing administrator signs in to the teacher panel and can create
+additional teacher accounts. Each group can be assigned one teacher. Teachers
+share and edit the same task library, while each teacher's Bunny video ID is
+stored separately per task. Students see the video assigned to their group's
+teacher only after submitting an answer.
+
 ```json
 {
   "rules": {
@@ -73,13 +79,14 @@ same-site session cookie.
 | POST | `/api/task-images` | Admin | Upload a task image to Vercel Blob |
 | GET, POST | `/api/quizzes` | Admin | List or create quizzes |
 | PATCH, DELETE | `/api/quizzes/:quizId` | Admin | Edit a quiz, add/remove tasks, or delete the quiz |
-| GET, POST | `/api/assignments` | Admin | List and publish group homework |
-| GET, POST | `/api/live-lessons` | Admin | List and prepare live lessons |
-| PATCH | `/api/live-lessons/:lessonId` | Admin | Start, end, advance, or reopen a student's answer |
-| GET | `/api/live-lessons/:lessonId/submissions` | Admin | Review answers and correctness for the active question |
+| GET, POST | `/api/assignments` | Teacher/Admin | List group homework or publish homework to an owned group |
+| PATCH | `/api/assignments/:assignmentId` | Teacher/Admin | Reset an answer for homework in an owned group |
+| GET, POST | `/api/live-lessons` | Teacher/Admin | List lessons for groups or prepare a lesson |
+| PATCH | `/api/live-lessons/:lessonId` | Teacher/Admin | Manage a lesson for an owned group |
+| GET | `/api/live-lessons/:lessonId/submissions` | Teacher/Admin | Review answers and correctness for the active question |
 | GET | `/api/student/dashboard` | Student | Load groups, homework, and active live question |
 | POST | `/api/live-lessons/:lessonId/submissions` | Student | Submit one answer to the active live question |
-| GET, POST | `/api/assignments/:assignmentId` | Student | Load homework and submit an answer |
+| GET, POST | `/api/assignments/:assignmentId` | Student/Teacher | Load homework or results and submit an answer |
 
 The app screens are `/login`, `/admin`, `/admin/quizzes`,
 `/admin/tasks`, `/admin/groups`,
@@ -93,11 +100,11 @@ also activate or deactivate approved accounts, set a temporary password, and
 permanently delete an account by confirming its email address. Permanent
 deletion also removes the student's submissions and memberships and cannot be
 undone. Live lesson
-`PATCH` actions are `start`, `end`, `next-task`, and `reopen-student` (the latter
+`PATCH` actions are `edit`, `start`, `end`, `next-task`, and `reopen-student` (the latter
 also requires `studentId`). A lesson starts with the configured timer (120
 seconds by default). The API enforces the deadline and hides answer correctness
-from students; while a lesson is live, the admin can re-enable an individual
-student to replace their answer to the active question. Admins can also mark
+from students; while a lesson is live, its teacher can re-enable an individual
+student to replace their answer to the active question. Teachers can also mark
 submitted answers as correct manually; this is reflected in results and the
 leaderboard. Replacing an answer clears its manual correctness override.
 Homework answers can be submitted once per question and are graded immediately;
@@ -105,6 +112,9 @@ students see their own result. Firebase Realtime Database broadcasts lesson
 change signals, with authenticated API polling as a fallback.
 
 Quizzes are managed under `/admin/quizzes`; task CRUD is on `/admin/tasks`.
+Homework assignments and live lessons belong to their group. The group's
+assigned teacher can create and manage its assignments and lessons; assigning
+or changing the teacher on a group automatically changes access to its work.
 Creating a task requires selecting a quiz. The same task can be reused in
 multiple quizzes, including mixed review quizzes. Homework and live lessons
 accept one or more quizzes and snapshot their ordered tasks when created; later

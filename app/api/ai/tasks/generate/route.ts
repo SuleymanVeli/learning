@@ -130,10 +130,7 @@ export async function POST(request: Request) {
   }
 
   await connectToDatabase();
-  const quiz = await Quiz.findOne({
-    _id: body.quizId,
-    createdBy: admin._id,
-  }).select("title");
+  const quiz = await Quiz.findById(body.quizId).select("title");
   if (!quiz) return jsonError("Seçilən quiz tapılmadı.", 404);
 
   const schema = {

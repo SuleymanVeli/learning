@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import { jsonError, readJsonObject } from "@/src/lib/api";
-import { requireUser } from "@/src/lib/auth";
+import { requireUser, teacherGroupScope } from "@/src/lib/auth";
 import { Group } from "@/src/models/Group";
 import { User } from "@/src/models/User";
 
@@ -20,7 +20,7 @@ export async function GET(
   await connectToDatabase();
   const group = await Group.findOne({
     _id: groupId,
-    adminId: admin._id,
+    ...teacherGroupScope(admin),
   })
     .select("studentIds")
     .lean();
@@ -91,12 +91,12 @@ export async function POST(
   const [targetGroup, sourceGroup] = await Promise.all([
     Group.findOne({
       _id: groupId,
-      adminId: admin._id,
+      ...teacherGroupScope(admin),
       archivedAt: null,
     }).select("_id studentIds"),
     Group.findOne({
       _id: body.sourceGroupId,
-      adminId: admin._id,
+      ...teacherGroupScope(admin),
       archivedAt: null,
     }).select("_id"),
   ]);
@@ -171,7 +171,7 @@ export async function DELETE(
   await connectToDatabase();
   const group = await Group.findOne({
     _id: groupId,
-    adminId: admin._id,
+    ...teacherGroupScope(admin),
     studentIds: body.studentId,
   }).select("_id");
   if (!group) return jsonError("Şagird bu qrupda tapılmadı.", 404);
@@ -188,7 +188,7 @@ export async function DELETE(
 
   await Promise.all([
     Group.updateOne(
-      { _id: group._id, adminId: admin._id },
+      { _id: group._id },
       { $pull: { studentIds: student._id } },
     ),
     User.updateOne(

@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import { jsonError, readJsonObject } from "@/src/lib/api";
-import { requireUser } from "@/src/lib/auth";
+import { requireUser, teacherGroupScope } from "@/src/lib/auth";
+import { Group } from "@/src/models/Group";
 import { publishLessonSignal } from "@/src/lib/firebase-admin";
 import { isCorrectAnswer, isValidAnswer } from "@/src/lib/quiz";
 import { LiveLesson } from "@/src/models/LiveLesson";
@@ -25,13 +26,23 @@ export async function GET(
   const lesson = await LiveLesson.findOne({
     _id: lessonId,
     ...(isAdmin
-      ? { createdBy: user._id }
+      ? {}
       : {
           groupId: { $in: user.groupIds },
           status: { $in: ["draft", "live", "ended"] },
         }),
   }).lean();
   if (!lesson) return jsonError("Canlı dərs tapılmadı.", 404);
+  if (
+    isAdmin &&
+    user.role !== "admin" &&
+    !(await Group.exists({
+      _id: lesson.groupId,
+      ...teacherGroupScope(user),
+    }))
+  ) {
+    return jsonError("Canlı dərs tapılmadı.", 404);
+  }
 
   const requestedTaskIndex = Number(
     new URL(request.url).searchParams.get("taskIndex"),
@@ -138,9 +149,17 @@ export async function PATCH(
   await connectToDatabase();
   const lesson = await LiveLesson.findOne({
     _id: lessonId,
-    createdBy: admin._id,
-  }).select("_id");
+  }).select("_id groupId");
   if (!lesson) return jsonError("Canlı dərs tapılmadı.", 404);
+  if (
+    admin.role !== "admin" &&
+    !(await Group.exists({
+      _id: lesson.groupId,
+      ...teacherGroupScope(admin),
+    }))
+  ) {
+    return jsonError("Canlı dərs tapılmadı.", 404);
+  }
 
   const submissionId = new mongoose.Types.ObjectId(body.submissionId);
   const submission = await Submission.findOne({

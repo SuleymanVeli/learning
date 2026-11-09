@@ -83,6 +83,7 @@ export function AdminHomeworkResults({ assignmentId }: { assignmentId: string })
           assignmentId={assignmentId}
           name={user.name}
           avatar={user.avatar}
+          canManageTeachers={user.canManageTeachers}
         />
       )}
     </RoleGate>
@@ -93,10 +94,12 @@ function AdminHomeworkResultsContent({
   assignmentId,
   name,
   avatar,
+  canManageTeachers,
 }: {
   assignmentId: string;
   name: string;
   avatar: string;
+  canManageTeachers: boolean;
 }) {
   const [data, setData] = useState<ResultData | null>(null);
   const [taskIndex, setTaskIndex] = useState(0);
@@ -171,7 +174,12 @@ function AdminHomeworkResultsContent({
   const task = data?.tasks[taskIndex];
 
   return (
-    <DashboardShell name={name} role="admin" avatar={avatar}>
+    <DashboardShell
+      name={name}
+      role="admin"
+      avatar={avatar}
+      canManageTeachers={canManageTeachers}
+    >
       <div className="mb-5">
         <Link href="/admin/assignments" className="text-sm font-semibold text-brand-700">
           ← Ev tapşırıqlarına qayıt

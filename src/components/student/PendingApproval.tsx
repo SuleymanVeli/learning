@@ -8,7 +8,7 @@ import { ApiError, requestJson } from "@/src/lib/client-api";
 
 interface CurrentUser {
   name: string;
-  role: "admin" | "student";
+  role: "admin" | "teacher" | "student";
   approvalStatus: "pending" | "approved";
 }
 
@@ -22,7 +22,7 @@ export function PendingApproval() {
       const { user: currentUser } = await requestJson<{ user: CurrentUser }>(
         "/api/auth/me",
       );
-      if (currentUser.role === "admin") {
+      if (currentUser.role === "admin" || currentUser.role === "teacher") {
         router.replace("/admin");
         return;
       }

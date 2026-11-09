@@ -65,7 +65,12 @@ export function LiveLessonDetail({
           key={`${role}-${lessonId}`}
           lessonId={lessonId}
           role={role}
-          user={user}
+          user={{
+            id: user.id,
+            name: user.name,
+            avatar: user.avatar,
+            canManageTeachers: user.canManageTeachers,
+          }}
         />
       }
     </RoleGate>
@@ -79,7 +84,12 @@ function LiveLessonDetailContent({
 }: {
   lessonId: string;
   role: "admin" | "student";
-  user: { id: string; name: string; avatar: string };
+  user: {
+    id: string;
+    name: string;
+    avatar: string;
+    canManageTeachers: boolean;
+  };
 }) {
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [submissions, setSubmissions] = useState<LiveSubmission[]>([]);
@@ -251,7 +261,12 @@ function LiveLessonDetailContent({
 
   if (loading) {
     return (
-      <DashboardShell name={user.name} role={role} avatar={user.avatar}>
+      <DashboardShell
+        name={user.name}
+        role={role}
+        avatar={user.avatar}
+        canManageTeachers={user.canManageTeachers}
+      >
         <p className="py-20 text-center text-muted">Dərs yüklənir...</p>
       </DashboardShell>
     );
@@ -259,7 +274,12 @@ function LiveLessonDetailContent({
 
   if (!lesson) {
     return (
-      <DashboardShell name={user.name} role={role} avatar={user.avatar}>
+      <DashboardShell
+        name={user.name}
+        role={role}
+        avatar={user.avatar}
+        canManageTeachers={user.canManageTeachers}
+      >
         <p role="alert" className="rounded-xl bg-danger-50 p-4 text-danger-600">
           {error || "Dərs tapılmadı."}
         </p>
@@ -274,7 +294,12 @@ function LiveLessonDetailContent({
     Boolean(activeTask);
 
   return (
-    <DashboardShell name={user.name} role={role} avatar={user.avatar}>
+    <DashboardShell
+      name={user.name}
+      role={role}
+      avatar={user.avatar}
+      canManageTeachers={user.canManageTeachers}
+    >
       {role === "student" ? (
         <div className="mb-6 flex min-w-0 items-center gap-3">
           <Link

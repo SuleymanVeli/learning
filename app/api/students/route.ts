@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/src/lib/mongodb";
-import { requireUser } from "@/src/lib/auth";
+import { requireUser, teacherGroupScope } from "@/src/lib/auth";
 import { Group } from "@/src/models/Group";
 import { User } from "@/src/models/User";
 
@@ -19,7 +19,7 @@ export async function GET() {
 
   await connectToDatabase();
   const groups = await Group.find({
-    adminId: admin._id,
+    ...teacherGroupScope(admin),
   }).select("_id").lean();
   const students = await User.find({
     role: "student",

@@ -95,7 +95,7 @@ interface ParsedTask {
   explanation: string | undefined;
   videoExplanationId: string | undefined;
   difficulty: "easy" | "medium" | "hard";
-  quizId: string;
+  quizId: string | undefined;
 }
 
 function parseVideoExplanationId(value: unknown): string | undefined | null {
@@ -276,7 +276,10 @@ export function parseTask(
     };
   }
   const quizId = body.quizId;
-  if (typeof quizId !== "string" || !mongoose.Types.ObjectId.isValid(quizId)) {
+  if (
+    quizId !== undefined &&
+    (typeof quizId !== "string" || !mongoose.Types.ObjectId.isValid(quizId))
+  ) {
     return { error: "Tapşırığın əlavə ediləcəyi quiz-i seçin." };
   }
 
