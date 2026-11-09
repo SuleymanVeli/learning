@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Eye, Plus } from "lucide-react";
+import {
+  BookOpen,
+  Eye,
+  MonitorPlay,
+  Pencil,
+  Plus,
+  Trash2,
+  Video,
+  VideoOff,
+} from "lucide-react";
 import { DashboardShell } from "@/src/components/app/DashboardShell";
 import { RoleGate } from "@/src/components/app/RoleGate";
 import { Button } from "@/src/components/ui/Button";
@@ -91,6 +100,7 @@ function TaskManagementContent({
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedQuizFilter, setSelectedQuizFilter] = useState("all");
+  const [videoFilter, setVideoFilter] = useState("all");
   const [taskPage, setTaskPage] = useState(1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -152,8 +162,13 @@ function TaskManagementContent({
       (selectedQuizFilter === "unassigned"
         ? task.quizzes.length === 0
         : task.quizzes.some((quiz) => quiz.id === selectedQuizFilter));
+    const hasVideo = Boolean(task.videoExplanationId?.trim());
+    const matchesVideo =
+      videoFilter === "all" ||
+      (videoFilter === "with-video" ? hasVideo : !hasVideo);
     return (
       matchesQuiz &&
+      matchesVideo &&
       (!query ||
         task.title.toLocaleLowerCase().includes(query) ||
         task.prompt.toLocaleLowerCase().includes(query) ||
@@ -428,171 +443,210 @@ function TaskManagementContent({
         </Card>
       )}
 
-      <Card className="p-0">
-        <div className="flex flex-col gap-4 border-b border-border p-5">
-          <div>
-            <h2 className="text-xl font-bold">Tapşırıq siyahısı</h2>
-            <p className="mt-1 text-sm text-muted">
-              {filteredTasks.length} / {tasks.length} tapşırıq · yarat, redaktə et
-              və sil
-            </p>
-          </div>
-          <div
-            className={`grid gap-3 ${
-              canManageTeachers ? "sm:grid-cols-3" : "sm:grid-cols-2"
-            }`}
-          >
-            {canManageTeachers && (
+      <section>
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-col gap-4 border-b border-border p-5">
+            <div>
+              <h2 className="text-xl font-bold">Tapşırıq siyahısı</h2>
+              <p className="mt-1 text-sm text-muted">
+                {filteredTasks.length} / {tasks.length} tapşırıq · yarat, redaktə
+                et və sil
+              </p>
+            </div>
+            <div
+              className={`grid items-end gap-2 rounded-2xl bg-surface-muted/60 p-4 ${
+                canManageTeachers
+                  ? "sm:grid-cols-2 lg:grid-cols-[minmax(150px,1fr)_minmax(180px,1.2fr)_minmax(145px,1fr)_minmax(190px,1.4fr)]"
+                  : "sm:grid-cols-2 lg:grid-cols-[minmax(180px,1.2fr)_minmax(145px,1fr)_minmax(190px,1.4fr)]"
+              }`}
+            >
+              {canManageTeachers && (
+                <Select
+                  label="Videolara baxılan müəllim"
+                  compact
+                  value={videoTeacherId}
+                  onChange={(event) => {
+                    setVideoTeacherId(event.currentTarget.value);
+                    setTaskPage(1);
+                  }}
+                >
+                  {teachers.map((teacher) => (
+                    <option key={teacher._id} value={teacher._id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
               <Select
-                label="Videolara baxılan müəllim"
-                value={videoTeacherId}
+                label="Quiz üzrə süzgəc"
+                compact
+                value={selectedQuizFilter}
                 onChange={(event) => {
-                  setVideoTeacherId(event.currentTarget.value);
+                  setSelectedQuizFilter(event.currentTarget.value);
                   setTaskPage(1);
                 }}
               >
-                {teachers.map((teacher) => (
-                  <option key={teacher._id} value={teacher._id}>
-                    {teacher.name}
+                <option value="all">Bütün quizlər</option>
+                <option value="unassigned">Heç bir quizdə yoxdur</option>
+                {quizzes.map((quiz) => (
+                  <option key={quiz._id} value={quiz._id}>
+                    {quiz.title}
                   </option>
                 ))}
               </Select>
-            )}
-            <Select
-              label="Quiz üzrə süzgəc"
-              value={selectedQuizFilter}
-              onChange={(event) => {
-                setSelectedQuizFilter(event.currentTarget.value);
-                setTaskPage(1);
-              }}
-            >
-              <option value="all">Bütün quizlər</option>
-              <option value="unassigned">Heç bir quizdə yoxdur</option>
-              {quizzes.map((quiz) => (
-                <option key={quiz._id} value={quiz._id}>
-                  {quiz.title}
-                </option>
-              ))}
-            </Select>
-            <Input
-              aria-label="Tapşırıqlarda axtar"
-              placeholder="Ad, sual və ya quizlə axtar"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.currentTarget.value);
-                setTaskPage(1);
-              }}
-            />
-          </div>
-        </div>
-        {loading ? (
-          <p className="px-5 py-14 text-center text-sm text-muted">
-            Tapşırıqlar yüklənir...
-          </p>
-        ) : filteredTasks.length ? (
-          <div className="divide-y divide-border">
-            {paginatedTasks.map((task) => (
-              <article
-                key={task._id}
-                className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between"
+              <Select
+                label="Video izahı"
+                compact
+                value={videoFilter}
+                onChange={(event) => {
+                  setVideoFilter(event.currentTarget.value);
+                  setTaskPage(1);
+                }}
               >
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold">{task.title}</h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted">
-                    {task.prompt ||
-                      (task.contentBlocks?.some(
-                        (block) => block.type === "image",
-                      )
-                        ? "Şəkilli tapşırıq"
-                        : "")}
-                  </p>
-                  {task.contentBlocks?.some((block) => block.type === "image") && (
-                    <span className="mt-2 inline-block rounded-full bg-surface-muted px-2.5 py-1 text-xs text-muted">
-                      Şəkilli kontent
-                    </span>
-                  )}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
-                      {typeLabel(task.type)}
-                    </span>
-                    <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs text-muted">
-                      {difficultyLabel(task.difficulty)}
-                    </span>
-                    {task.quizzes.map((quiz) => (
-                      <span
-                        key={quiz.id}
-                        className="rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-600"
-                      >
-                        {quiz.title}
-                      </span>
-                    ))}
-                    {!task.quizzes.length && (
-                      <span className="rounded-full bg-warning-50 px-2.5 py-1 text-xs font-semibold text-warning-600">
-                        Quizə əlavə edilməyib
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setStudentViewTask(task)}
-                  >
-                    <Eye aria-hidden="true" className="h-4 w-4" />
-                    Şagird görünüşü
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setPreviewTask(task)}
-                  >
-                    Ön baxış
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openTask({ type: "edit", task })}
-                  >
-                    Redaktə
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => {
-                      setDeletingTask(task);
-                      setError("");
-                    }}
-                  >
-                    Sil
-                  </Button>
-                </div>
-              </article>
-            ))}
+                <option value="all">Bütün tapşırıqlar</option>
+                <option value="with-video">Videosu olanlar</option>
+                <option value="without-video">Videosu olmayanlar</option>
+              </Select>
+              <Input
+                aria-label="Tapşırıqlarda axtar"
+                className="px-3 py-2 text-sm"
+                placeholder="Ad, sual və ya quizlə axtar"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.currentTarget.value);
+                  setTaskPage(1);
+                }}
+              />
+            </div>
           </div>
-        ) : (
-          <div className="px-5 py-16 text-center">
-            <h3 className="font-bold">
-              {search || selectedQuizFilter !== "all"
-                ? "Uyğun tapşırıq tapılmadı"
-                : "Hələ tapşırıq əlavə edilməyib"}
-            </h3>
-            <p className="mt-2 text-sm text-muted">
-              {search || selectedQuizFilter !== "all"
-                ? "Quiz süzgəcini və ya axtarış sözünü dəyişib yenidən yoxla."
-                : "Yeni tapşırıq yaratmaq üçün yuxarıdakı düymədən istifadə et."}
+          {loading ? (
+            <p className="px-5 py-14 text-center text-sm text-muted">
+              Tapşırıqlar yüklənir...
             </p>
-          </div>
-        )}
-        {!loading && filteredTasks.length > 0 && (
-          <Pagination
-            page={currentTaskPage}
-            pageSize={TASKS_PER_PAGE}
-            totalItems={filteredTasks.length}
-            onPageChange={setTaskPage}
-          />
-        )}
-      </Card>
+          ) : filteredTasks.length ? (
+            <div className="space-y-2 p-4">
+                {paginatedTasks.map((task) => (
+                  <article
+                    key={task._id}
+                    className="flex flex-col gap-4 rounded-xl bg-surface-muted/40 px-4 py-4 transition-colors hover:bg-surface-muted/70 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <h3 className="truncate text-base font-semibold text-foreground">
+                        {task.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {task.quizzes.length ? (
+                          task.quizzes.map((quiz) => (
+                            <span
+                              key={quiz.id}
+                              className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700"
+                              title={quiz.title}
+                            >
+                              <BookOpen
+                                aria-hidden="true"
+                                className="h-3.5 w-3.5 shrink-0"
+                              />
+                              <span className="truncate">{quiz.title}</span>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted">
+                            Təyin edilməyib
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        {task.videoExplanationId?.trim() ? (
+                          <span
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-success-600"
+                            title="Video izahı var"
+                          >
+                            <Video aria-hidden="true" className="h-4 w-4" />
+                            Video izahı var
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1.5 text-sm text-muted"
+                            title="Video izahı yoxdur"
+                          >
+                            <VideoOff aria-hidden="true" className="h-4 w-4" />
+                            Video izahı yoxdur
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:ml-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-10 w-10 p-0"
+                        aria-label="Şagird görünüşü"
+                        title="Şagird görünüşü"
+                        onClick={() => setStudentViewTask(task)}
+                      >
+                        <MonitorPlay aria-hidden="true" className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-10 w-10 p-0"
+                        aria-label="Ön baxış"
+                        title="Ön baxış"
+                        onClick={() => setPreviewTask(task)}
+                      >
+                        <Eye aria-hidden="true" className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-10 w-10 p-0"
+                        aria-label="Redaktə et"
+                        title="Redaktə et"
+                        onClick={() => openTask({ type: "edit", task })}
+                      >
+                        <Pencil aria-hidden="true" className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        className="h-10 w-10 p-0"
+                        aria-label="Sil"
+                        title="Sil"
+                        onClick={() => {
+                          setDeletingTask(task);
+                          setError("");
+                        }}
+                      >
+                        <Trash2 aria-hidden="true" className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+            </div>
+          ) : (
+            <div className="m-4 rounded-2xl bg-surface-muted/40 px-5 py-16 text-center">
+              <h3 className="font-bold">
+                {search || selectedQuizFilter !== "all" || videoFilter !== "all"
+                  ? "Uyğun tapşırıq tapılmadı"
+                  : "Hələ tapşırıq əlavə edilməyib"}
+              </h3>
+              <p className="mt-2 text-sm text-muted">
+                {search || selectedQuizFilter !== "all" || videoFilter !== "all"
+                  ? "Axtarış sözünü və ya filtrləri dəyişib yenidən yoxla."
+                  : "Yeni tapşırıq yaratmaq üçün yuxarıdakı düymədən istifadə et."}
+              </p>
+            </div>
+          )}
+          {!loading && filteredTasks.length > 0 && (
+            <Pagination
+              page={currentTaskPage}
+              pageSize={TASKS_PER_PAGE}
+              totalItems={filteredTasks.length}
+              onPageChange={setTaskPage}
+            />
+          )}
+        </Card>
+      </section>
 
       <TaskFormModal
         key={`${modal?.type ?? "closed"}-${videoTeacherId}-${
@@ -991,8 +1045,34 @@ function StudentTaskViewModal({
   task: TaskItem | null;
   onClose: () => void;
 }) {
-  const [answer, setAnswer] = useState<string | string[]>("");
+  const [answer, setAnswer] = useState<string | string[]>(() => {
+    if (!task) return "";
+    if (task.type === "short_answer") {
+      return typeof task.correctAnswer === "string" ? task.correctAnswer : "";
+    }
+    if (task.type === "single_choice") {
+      const correctId = Array.isArray(task.correctAnswer)
+        ? task.correctAnswer[0]
+        : task.correctAnswer;
+      return typeof correctId === "string" &&
+        task.options.some((option) => option.id === correctId)
+        ? correctId
+        : "";
+    }
+    return Array.isArray(task.correctAnswer)
+      ? task.correctAnswer.filter(
+          (answer): answer is string =>
+            typeof answer === "string" &&
+            task.options.some((option) => option.id === answer),
+        )
+      : [];
+  });
   const selectedIds = Array.isArray(answer) ? answer : [];
+  const clearAnswer = () => {
+    setAnswer(
+      task?.type === "multiple_choice" || task?.type === "drag_drop" ? [] : "",
+    );
+  };
 
   function selectOption(optionId: string) {
     if (!task) return;
@@ -1037,16 +1117,35 @@ function StudentTaskViewModal({
             </div>
             <div className="student-homework-answer">
               {task.type === "short_answer" ? (
-                <Input
-                  label="Cavabın"
-                  placeholder="Cavabını yaz"
-                  value={typeof answer === "string" ? answer : ""}
-                  onChange={(event) => setAnswer(event.currentTarget.value)}
-                />
+                <div className="flex items-end gap-2">
+                  <Input
+                    className="min-w-0 flex-1"
+                    label="Cavabın"
+                    placeholder="Cavabını yaz"
+                    value={typeof answer === "string" ? answer : ""}
+                    onChange={(event) => setAnswer(event.currentTarget.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={clearAnswer}
+                    className="mb-0.5 shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
+                  >
+                    Təmizlə
+                  </button>
+                </div>
               ) : task.type === "drag_drop" ? (
                 <fieldset className="space-y-3">
-                  <legend className="text-sm font-medium">
-                    Cavab ardıcıllığını qurmaq üçün variantlara sıra ilə toxun
+                  <legend className="flex items-center justify-between gap-3 text-sm font-medium">
+                    <span>
+                      Cavab ardıcıllığını qurmaq üçün variantlara sıra ilə toxun
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearAnswer}
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
+                    >
+                      Təmizlə
+                    </button>
                   </legend>
                   <div
                     className={
@@ -1077,24 +1176,22 @@ function StudentTaskViewModal({
                       );
                     })}
                   </div>
-                  {selectedIds.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="student-flat-button"
-                      onClick={() => setAnswer([])}
-                    >
-                      Seçimi sıfırla
-                    </Button>
-                  )}
                 </fieldset>
               ) : (
                 <fieldset className="space-y-2">
-                  <legend className="mb-2 font-medium">
-                    {task.type === "multiple_choice"
-                      ? "Cavabları seç"
-                      : "Bir cavab seç"}
+                  <legend className="mb-2 flex items-center justify-between gap-3 font-medium">
+                    <span>
+                      {task.type === "multiple_choice"
+                        ? "Cavabları seç"
+                        : "Bir cavab seç"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearAnswer}
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
+                    >
+                      Təmizlə
+                    </button>
                   </legend>
                   <div
                     className={
@@ -1453,19 +1550,6 @@ function TaskFormModal({
       )}
     </Modal>
   );
-}
-
-function typeLabel(type: TaskType) {
-  return {
-    single_choice: "Bir cavab",
-    multiple_choice: "Çox cavab",
-    drag_drop: "Ardıcıllıq",
-    short_answer: "Yazılı cavab",
-  }[type];
-}
-
-function difficultyLabel(difficulty: TaskItem["difficulty"]) {
-  return { easy: "Asan", medium: "Orta", hard: "Çətin" }[difficulty];
 }
 
 function InlineNotice({

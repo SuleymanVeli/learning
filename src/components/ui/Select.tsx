@@ -3,12 +3,14 @@ import React, { useId } from "react";
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
+  compact?: boolean;
 }
 
 export const Select: React.FC<SelectProps> = ({
   children,
   label,
   error,
+  compact = false,
   className = "",
   id,
   "aria-describedby": ariaDescribedBy,
@@ -22,11 +24,13 @@ export const Select: React.FC<SelectProps> = ({
     .join(" ");
 
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div className={`flex w-full flex-col ${compact ? "gap-1" : "gap-1.5"}`}>
       {label && (
         <label
           htmlFor={selectId}
-          className="text-sm font-medium text-foreground"
+          className={`font-medium text-foreground ${
+            compact ? "text-xs" : "text-sm"
+          }`}
         >
           {label}
         </label>
@@ -35,7 +39,9 @@ export const Select: React.FC<SelectProps> = ({
         id={selectId}
         aria-invalid={error ? true : ariaInvalid}
         aria-describedby={describedBy || undefined}
-        className={`w-full rounded-xl border bg-surface-muted px-4 py-2.5 text-foreground outline-none transition-all focus:border-brand-500 focus:bg-surface focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`w-full rounded-xl border bg-surface-muted text-foreground outline-none transition-all focus:border-brand-500 focus:bg-surface focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+          compact ? "px-3 py-2 text-sm" : "px-4 py-2.5"
+        } ${
           error
             ? "border-danger-500 focus:border-danger-500 focus:ring-danger-500/20"
             : "border-border"
