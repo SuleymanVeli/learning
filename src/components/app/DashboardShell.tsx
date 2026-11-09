@@ -152,13 +152,12 @@ export function DashboardShell({
 
   const teacherNavigation = [
     { href: "/admin", label: "Panel", icon: "🏠" },
-    { href: "/admin/groups", label: "Qruplar", icon: "👥" },
-    { href: "/admin/users", label: "Şagirdlər", icon: "🎓" },
     { href: "/admin/assignments", label: "Ev tapşırıqları", icon: "📚" },
     { href: "/admin/live-lessons", label: "Canlı dərslər", icon: "🎮" },
+    { href: "/admin/tasks", label: "Tapşırıqlar", icon: "📝" },
     { href: "/admin/quizzes", label: "Quizlər", icon: "🧩" },
-    { href: "/admin/tasks", label: "Ortaq tapşırıqlar", icon: "📝" },
-    { href: "/admin/ai-tasks", label: "AI ilə yarat", icon: "✨" },
+    { href: "/admin/users", label: "Şagirdlər", icon: "🎓" },
+    { href: "/admin/groups", label: "Qruplar", icon: "👥" },
     ...(canManageTeachers
       ? [{ href: "/admin/teachers", label: "Müəllimlər", icon: "👩‍🏫" }]
       : []),

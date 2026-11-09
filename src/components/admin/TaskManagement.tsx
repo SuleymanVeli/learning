@@ -1068,11 +1068,14 @@ function StudentTaskViewModal({
       : [];
   });
   const selectedIds = Array.isArray(answer) ? answer : [];
-  const clearAnswer = () => {
+  const [showClearButton, setShowClearButton] = useState(true);
+  function clearAnswer() {
+    if (!task) return;
     setAnswer(
-      task?.type === "multiple_choice" || task?.type === "drag_drop" ? [] : "",
+      task.type === "multiple_choice" || task.type === "drag_drop" ? [] : "",
     );
-  };
+    setShowClearButton(false);
+  }
 
   function selectOption(optionId: string) {
     if (!task) return;
@@ -1125,13 +1128,15 @@ function StudentTaskViewModal({
                     value={typeof answer === "string" ? answer : ""}
                     onChange={(event) => setAnswer(event.currentTarget.value)}
                   />
-                  <button
-                    type="button"
-                    onClick={clearAnswer}
-                    className="mb-0.5 shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
-                  >
-                    Təmizlə
-                  </button>
+                  {showClearButton && (
+                    <button
+                      type="button"
+                      onClick={clearAnswer}
+                      className="mb-0.5 shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
+                    >
+                      Təmizlə
+                    </button>
+                  )}
                 </div>
               ) : task.type === "drag_drop" ? (
                 <fieldset className="space-y-3">
@@ -1139,13 +1144,15 @@ function StudentTaskViewModal({
                     <span>
                       Cavab ardıcıllığını qurmaq üçün variantlara sıra ilə toxun
                     </span>
-                    <button
-                      type="button"
-                      onClick={clearAnswer}
-                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
-                    >
-                      Təmizlə
-                    </button>
+                    {showClearButton && (
+                      <button
+                        type="button"
+                        onClick={clearAnswer}
+                        className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
+                      >
+                        Təmizlə
+                      </button>
+                    )}
                   </legend>
                   <div
                     className={
@@ -1185,13 +1192,15 @@ function StudentTaskViewModal({
                         ? "Cavabları seç"
                         : "Bir cavab seç"}
                     </span>
-                    <button
-                      type="button"
-                      onClick={clearAnswer}
-                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
-                    >
-                      Təmizlə
-                    </button>
+                    {showClearButton && (
+                      <button
+                        type="button"
+                        onClick={clearAnswer}
+                        className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground"
+                      >
+                        Təmizlə
+                      </button>
+                    )}
                   </legend>
                   <div
                     className={
