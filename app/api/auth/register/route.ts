@@ -1,10 +1,16 @@
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import {
   isNonEmptyString,
   jsonError,
   readJsonObject,
 } from "@/src/lib/api";
-import { hashPassword, publicUser, setSessionCookie } from "@/src/lib/auth";
+import {
+  hashPassword,
+  publicUser,
+  setSessionCookie,
+  verifyPassword,
+} from "@/src/lib/auth";
 import { Group } from "@/src/models/Group";
 import { User } from "@/src/models/User";
 
@@ -39,8 +45,53 @@ export async function POST(request: Request) {
     inviteEnabled: true,
   });
   if (!group) return jsonError("Qrup dəvət linki etibarsız və ya deaktiv edilib.", 404);
-  if (await User.exists({ email })) {
-    return jsonError("Bu e-poçtla hesab artıq mövcuddur.", 409);
+
+  const existingStudent = await User.findOne({ email }).select("+passwordHash");
+  if (existingStudent) {
+    if (
+      existingStudent.role !== "student" ||
+      !(await verifyPassword(body.password, existingStudent.passwordHash))
+    ) {
+      return jsonError("E-poçt və ya şifrə yanlışdır.", 401);
+    }
+    if (!existingStudent.isActive) {
+      return jsonError(
+        "Bu hesab deaktiv edilib. Administratorla əlaqə saxlayın.",
+        403,
+      );
+    }
+
+    const groupUpdate = await Group.updateOne(
+      { _id: group._id, archivedAt: null, inviteEnabled: true },
+      { $addToSet: { studentIds: existingStudent._id } },
+    );
+    if (groupUpdate.matchedCount !== 1) {
+      return jsonError("Qrup dəvət linki etibarsız və ya deaktiv edilib.", 404);
+    }
+
+    const alreadyInGroup = group.studentIds.some(
+      (studentId: mongoose.Types.ObjectId) =>
+        studentId.equals(existingStudent._id),
+    );
+    const studentUpdate = await User.updateOne(
+      { _id: existingStudent._id, role: "student", isActive: true },
+      { $addToSet: { groupIds: group._id } },
+    );
+    if (studentUpdate.matchedCount !== 1 && !alreadyInGroup) {
+      await Group.updateOne(
+        { _id: group._id },
+        { $pull: { studentIds: existingStudent._id } },
+      );
+    }
+    if (studentUpdate.matchedCount !== 1) {
+      return jsonError("Şagird hesabı aktiv deyil.", 403);
+    }
+    existingStudent.groupIds.addToSet(group._id);
+    await setSessionCookie(
+      existingStudent._id.toString(),
+      existingStudent.authVersion ?? 0,
+    );
+    return Response.json({ user: publicUser(existingStudent) });
   }
 
   let student;
@@ -62,7 +113,10 @@ export async function POST(request: Request) {
       "code" in error &&
       error.code === 11000
     ) {
-      return jsonError("Bu e-poçtla hesab artıq mövcuddur.", 409);
+      return jsonError(
+        "Bu e-poçtla hesab artıq mövcuddur. Mövcud hesabınızın şifrəsi ilə qrupa qoşulun.",
+        409,
+      );
     }
     throw error;
   }

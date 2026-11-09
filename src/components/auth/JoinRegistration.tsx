@@ -46,7 +46,9 @@ export function JoinRegistration({ accessCode }: { accessCode: string }) {
     setError("");
     setSubmitting(true);
     try {
-      await requestJson("/api/auth/register", {
+      const { user } = await requestJson<{
+        user: { approvalStatus: "pending" | "approved" };
+      }>("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
           accessCode,
@@ -55,7 +57,9 @@ export function JoinRegistration({ accessCode }: { accessCode: string }) {
           password: form.get("password"),
         }),
       });
-      router.replace("/student/pending");
+      router.replace(
+        user.approvalStatus === "pending" ? "/student/pending" : "/student",
+      );
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -104,8 +108,8 @@ export function JoinRegistration({ accessCode }: { accessCode: string }) {
               {groupName}
             </h1>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Qeydiyyat məlumatlarını daxil et. Qeydiyyatdan sonra email
-              təsdiqi tələb olunmur.
+              Yeni hesab yarat və ya mövcud hesabının e-poçt və şifrəsi ilə
+              qrupa qoşul.
             </p>
             <form className="mt-7 space-y-4" onSubmit={submit}>
               <Input
