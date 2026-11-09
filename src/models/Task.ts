@@ -35,6 +35,7 @@ export interface TaskDocument extends Document {
   options: TaskOption[];
   correctAnswer: unknown;
   explanation?: string;
+  videoExplanationId?: string;
   difficulty: "easy" | "medium" | "hard";
   archivedAt?: Date | null;
   createdBy: Types.ObjectId;
@@ -80,6 +81,12 @@ const taskSchema = new Schema<TaskDocument>(
     },
     correctAnswer: { type: Schema.Types.Mixed, required: true, select: false },
     explanation: { type: String, trim: true, maxlength: 5000, select: false },
+    videoExplanationId: {
+      type: String,
+      trim: true,
+      maxlength: 36,
+      select: false,
+    },
     difficulty: {
       type: String,
       enum: ["easy", "medium", "hard"],

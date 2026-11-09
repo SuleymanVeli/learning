@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ReactNode,
+} from "react";
 
 interface ModalProps {
   open: boolean;
@@ -27,11 +32,15 @@ export function Modal({
     const dialog = dialogRef.current;
     if (!dialog) return;
 
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      dialog.showModal();
+    }
+    if (!open && dialog.open) {
+      dialog.close();
+    }
   }, [open]);
 
-  if(!open) return<></>
+  if (!open) return <></>;
 
   return (
     <dialog
@@ -75,7 +84,11 @@ export function Modal({
           </svg>
         </button>
       </div>
-      <div className={size === "full" ? "min-h-0 flex-1 overflow-y-auto p-6" : "p-6"}>
+      <div
+        className={
+          size === "full" ? "min-h-0 flex-1 overflow-y-auto p-6" : "p-6"
+        }
+      >
         {children}
       </div>
     </dialog>

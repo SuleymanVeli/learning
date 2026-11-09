@@ -22,6 +22,13 @@ Set `BLOB_READ_WRITE_TOKEN` from a Vercel Blob read/write token in `.env.local`
 and in the Vercel project's environment variables. Admins can paste screenshots
 into task content; images are stored as public Blob URLs and can be displayed at
 10–100% width.
+For Bunny Stream video explanations, enable Embed View Token Authentication in
+the Bunny library and set its numeric library ID as `BUNNY_STREAM_LIBRARY_ID`
+and its Token authentication key as `BUNNY_STREAM_TOKEN_KEY` in the server
+environment. Admins enter only the video's ID when editing a task. The app signs
+student embed URLs for one hour after they submit an answer; these values must
+never be exposed to the browser. All video explanation videos must belong to the
+configured library.
 
 The app writes only lesson update timestamps to Realtime Database; answers,
 correctness, and task content remain in MongoDB. To let browsers subscribe to

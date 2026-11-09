@@ -32,6 +32,7 @@ interface TaskItem {
   options: TaskOption[];
   correctAnswer: string | string[];
   explanation?: string;
+  videoExplanationId?: string;
   difficulty: "easy" | "medium" | "hard";
   quizzes: QuizOption[];
 }
@@ -252,6 +253,7 @@ function TaskManagementContent({ name }: { name: string }) {
             correctAnswer,
             explanation:
               modal.type === "edit" ? modal.task.explanation ?? "" : "",
+            videoExplanationId: form.get("videoExplanationId"),
             difficulty:
               modal.type === "edit" ? modal.task.difficulty : "medium",
             quizId,
@@ -555,6 +557,7 @@ function TaskManagementContent({ name }: { name: string }) {
               options,
               correctAnswer,
               explanation: task.explanation,
+              videoExplanationId: task.videoExplanationId,
               difficulty: task.difficulty,
               quizId: task.quizzes[0]?.id,
             }),
@@ -1131,6 +1134,20 @@ function TaskFormModal({
               required
             />
           )}
+          <div className="space-y-1.5">
+            <Input
+              label="Bunny Stream video ID-si (istəyə bağlı)"
+              name="videoExplanationId"
+              defaultValue={task?.videoExplanationId ?? ""}
+              maxLength={36}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              disabled={saving}
+            />
+            <p className="text-xs text-muted">
+              Bu video yalnız ev tapşırığında cavab göndərildikdən sonra görünəcək.
+              Bunny Stream-də videonun ID-sini daxil edin.
+            </p>
+          </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="submit" disabled={saving || !quizzes.length}>
               {saving

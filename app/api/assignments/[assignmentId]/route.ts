@@ -8,6 +8,7 @@ import { Group } from "@/src/models/Group";
 import { HomeworkSubmission } from "@/src/models/HomeworkSubmission";
 import { Task, type TaskDocument } from "@/src/models/Task";
 import { User } from "@/src/models/User";
+import { signBunnyStreamEmbedUrl } from "@/src/lib/bunny-stream";
 import { sanitizeTaskContentBlocks } from "@/src/lib/task-content-html";
 
 export async function GET(
@@ -61,8 +62,8 @@ export async function GET(
     Task.find({ _id: { $in: assignment.taskIds } })
       .select(
         isAdmin
-          ? "title prompt contentBlocks type options explanation +correctAnswer"
-          : "title prompt contentBlocks type options",
+          ? "title prompt contentBlocks type options explanation +correctAnswer +videoExplanationId"
+          : "title prompt contentBlocks type options +videoExplanationId",
       )
       .lean(),
     HomeworkSubmission.find({
@@ -159,6 +160,35 @@ export async function GET(
     return { ...student, rank: currentRank };
   });
 
+  const tasksWithSubmittedVideos = isAdmin
+    ? []
+    : orderedTasks.filter(
+        (
+          task,
+        ): task is TaskDocument & { videoExplanationId: string } =>
+          Boolean(
+            task.videoExplanationId &&
+              (submissionsByTask.get(task._id.toString())?.length ?? 0) > 0,
+          ),
+      );
+  const signedVideoUrls = new Map<string, string>();
+  if (tasksWithSubmittedVideos.length > 0) {
+    const tokenKey = process.env.BUNNY_STREAM_TOKEN_KEY?.trim();
+    const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim();
+    if (!tokenKey || !libraryId || !/^\d+$/.test(libraryId)) {
+      return jsonError(
+        "Video izah üçün Bunny Stream kitabxana ID-si və token açarı serverdə təyin edilməyib.",
+        503,
+      );
+    }
+    for (const task of tasksWithSubmittedVideos) {
+      signedVideoUrls.set(
+        task._id.toString(),
+        signBunnyStreamEmbedUrl(task.videoExplanationId, libraryId, tokenKey),
+      );
+    }
+  }
+
   return Response.json({
     assignment: {
       id: assignment._id.toString(),
@@ -168,47 +198,56 @@ export async function GET(
     },
     leaderboard,
     tasks: orderedTasks.map((task) => {
-        const taskSubmissions = submissionsByTask.get(task._id.toString()) ?? [];
-        return {
-          ...task,
-          contentBlocks: sanitizeTaskContentBlocks(task.contentBlocks),
-          ...(isAdmin
+      const taskSubmissions = submissionsByTask.get(task._id.toString()) ?? [];
+      const {
+        videoExplanationId: storedVideoExplanationId,
+        ...taskFields
+      } = task;
+      return {
+        ...taskFields,
+        contentBlocks: sanitizeTaskContentBlocks(task.contentBlocks),
+        ...(isAdmin
+          ? {
+              correctAnswer: task.correctAnswer,
+              explanation: task.explanation,
+              videoExplanationId: storedVideoExplanationId,
+            }
+          : signedVideoUrls.has(task._id.toString())
             ? {
-                correctAnswer: task.correctAnswer,
-                explanation: task.explanation,
+                videoExplanationUrl: signedVideoUrls.get(task._id.toString()),
               }
             : {}),
-          submissions: taskSubmissions
-            .sort(
-              (left, right) =>
-                Number(right.isCorrect) - Number(left.isCorrect) ||
-                left.submittedAt.getTime() - right.submittedAt.getTime(),
-            )
-            .map((submission) => ({
-              answer: submission.answer,
-              isCorrect: submission.isCorrect,
-              retryAllowed: submission.retryAllowed,
-              submittedAt: submission.submittedAt,
-              studentId: submission.studentId,
-            })),
-          ...(isAdmin
-            ? {}
-            : {
-                retryAllowed: taskSubmissions.some(
-                  (submission) => submission.retryAllowed,
-                ),
-                submission: taskSubmissions[0]
-                  ? taskSubmissions[0].retryAllowed
-                    ? null
-                    : {
-                        answer: taskSubmissions[0].answer,
-                        isCorrect: taskSubmissions[0].isCorrect,
-                        submittedAt: taskSubmissions[0].submittedAt,
-                      }
-                  : null,
-              }),
-        };
-      }),
+        submissions: taskSubmissions
+          .sort(
+            (left, right) =>
+              Number(right.isCorrect) - Number(left.isCorrect) ||
+              left.submittedAt.getTime() - right.submittedAt.getTime(),
+          )
+          .map((submission) => ({
+            answer: submission.answer,
+            isCorrect: submission.isCorrect,
+            retryAllowed: submission.retryAllowed,
+            submittedAt: submission.submittedAt,
+            studentId: submission.studentId,
+          })),
+        ...(isAdmin
+          ? {}
+          : {
+              retryAllowed: taskSubmissions.some(
+                (submission) => submission.retryAllowed,
+              ),
+              submission: taskSubmissions[0]
+                ? taskSubmissions[0].retryAllowed
+                  ? null
+                  : {
+                      answer: taskSubmissions[0].answer,
+                      isCorrect: taskSubmissions[0].isCorrect,
+                      submittedAt: taskSubmissions[0].submittedAt,
+                    }
+                : null,
+            }),
+      };
+    }),
   });
 }
 

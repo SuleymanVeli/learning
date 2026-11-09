@@ -93,8 +93,19 @@ interface ParsedTask {
   options: TaskOption[];
   correctAnswer: unknown;
   explanation: string | undefined;
+  videoExplanationId: string | undefined;
   difficulty: "easy" | "medium" | "hard";
   quizId: string;
+}
+
+function parseVideoExplanationId(value: unknown): string | undefined | null {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(trimmed)
+    ? trimmed.toLowerCase()
+    : null;
 }
 
 function parseContentBlocks(value: unknown): TaskContentBlock[] | null {
@@ -256,6 +267,14 @@ export function parseTask(
   ) {
     return { error: "Çətinlik səviyyəsi yanlışdır." };
   }
+  const videoExplanationId = parseVideoExplanationId(
+    body.videoExplanationId,
+  );
+  if (videoExplanationId === null) {
+    return {
+      error: "Video izah üçün düzgün Bunny Stream video ID-si daxil edin.",
+    };
+  }
   const quizId = body.quizId;
   if (typeof quizId !== "string" || !mongoose.Types.ObjectId.isValid(quizId)) {
     return { error: "Tapşırığın əlavə ediləcəyi quiz-i seçin." };
@@ -273,6 +292,7 @@ export function parseTask(
         typeof body.explanation === "string"
           ? body.explanation.trim()
           : undefined,
+      videoExplanationId,
       difficulty: (body.difficulty ?? "medium") as "easy" | "medium" | "hard",
       quizId,
     },

@@ -44,6 +44,7 @@ export async function PATCH(
   task.options = taskData.options;
   task.correctAnswer = taskData.correctAnswer;
   task.explanation = taskData.explanation;
+  task.videoExplanationId = taskData.videoExplanationId;
   task.difficulty = taskData.difficulty;
   await task.save();
   await Quiz.updateOne(

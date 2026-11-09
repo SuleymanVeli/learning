@@ -10,6 +10,7 @@ import { TaskContent } from "@/src/components/tasks/TaskContent";
 import { TaskOptionContent } from "@/src/components/tasks/TaskOptionContent";
 import { ScoreLeaderboard } from "@/src/components/student/ScoreLeaderboard";
 import { StudentGroupTabs } from "@/src/components/student/StudentGroupTabs";
+import { VideoExplanation } from "@/src/components/student/VideoExplanation";
 import { requestJson } from "@/src/lib/client-api";
 import type { TaskContentBlock, TaskOption } from "@/src/models/Task";
 
@@ -34,6 +35,7 @@ interface HomeworkTask {
   contentBlocks: TaskContentBlock[];
   type: "single_choice" | "multiple_choice" | "drag_drop" | "short_answer";
   options: TaskOption[];
+  videoExplanationUrl?: string;
   retryAllowed: boolean;
   submission: {
     answer: unknown;
@@ -702,6 +704,12 @@ function StudentHomeworkContent({
                   </fieldset>
                 )}
               </form>
+            )}
+            {task.videoExplanationUrl && (
+              <VideoExplanation
+                title={task.title}
+                videoUrl={task.videoExplanationUrl}
+              />
             )}
             <div className="mt-6 grid grid-cols-3 gap-3">
               <Button

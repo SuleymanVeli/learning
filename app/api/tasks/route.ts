@@ -15,7 +15,7 @@ export async function GET() {
       createdBy: admin._id,
       $or: [{ archivedAt: null }, { archivedAt: { $exists: false } }],
     })
-      .select("+correctAnswer +explanation")
+      .select("+correctAnswer +explanation +videoExplanationId")
       .sort({ createdAt: -1 })
       .lean(),
     Quiz.find({ createdBy: admin._id }).select("title taskIds").lean(),
@@ -64,6 +64,7 @@ export async function POST(request: Request) {
     options: taskData.options,
     correctAnswer: taskData.correctAnswer,
     explanation: taskData.explanation,
+    videoExplanationId: taskData.videoExplanationId,
     difficulty: taskData.difficulty,
     createdBy: admin._id,
   });
