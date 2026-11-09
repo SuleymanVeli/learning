@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import { DashboardShell } from "@/src/components/app/DashboardShell";
 import { RoleGate } from "@/src/components/app/RoleGate";
 import { Button } from "@/src/components/ui/Button";
@@ -97,6 +97,7 @@ function TaskManagementContent({
   const [modal, setModal] = useState<TaskModal | null>(null);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [previewTask, setPreviewTask] = useState<TaskItem | null>(null);
+  const [studentViewTask, setStudentViewTask] = useState<TaskItem | null>(null);
   const [deletingTask, setDeletingTask] = useState<TaskItem | null>(null);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [videoTeacherId, setVideoTeacherId] = useState(userId);
@@ -532,7 +533,15 @@ function TaskManagementContent({
                     )}
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setStudentViewTask(task)}
+                  >
+                    <Eye aria-hidden="true" className="h-4 w-4" />
+                    Şagird görünüşü
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -597,6 +606,11 @@ function TaskManagementContent({
         error={error}
         onClose={() => setModal(null)}
         onSubmit={saveTask}
+      />
+      <StudentTaskViewModal
+        key={studentViewTask?._id ?? "student-view-closed"}
+        task={studentViewTask}
+        onClose={() => setStudentViewTask(null)}
       />
       {bulkModalOpen && (
         <BulkTaskModal
@@ -960,6 +974,190 @@ function TaskPreviewModal({
                   onClick={() => void save()}
                 >
                   {saving ? "Yadda saxlanılır..." : "Dəyişiklikləri saxla"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function StudentTaskViewModal({
+  task,
+  onClose,
+}: {
+  task: TaskItem | null;
+  onClose: () => void;
+}) {
+  const [answer, setAnswer] = useState<string | string[]>("");
+  const selectedIds = Array.isArray(answer) ? answer : [];
+
+  function selectOption(optionId: string) {
+    if (!task) return;
+    if (task.type === "drag_drop") {
+      setAnswer(
+        selectedIds.includes(optionId)
+          ? selectedIds.filter((id) => id !== optionId)
+          : [...selectedIds, optionId],
+      );
+    } else if (task.type === "multiple_choice") {
+      const current = Array.isArray(answer) ? answer : [];
+      setAnswer(
+        current.includes(optionId)
+          ? current.filter((id) => id !== optionId)
+          : [...current, optionId],
+      );
+    } else {
+      setAnswer(optionId);
+    }
+  }
+
+  return (
+    <Modal
+      open={task !== null}
+      title=""
+      fullBleed
+      onClose={onClose}
+    >
+      {task && (
+        <div className="student-theme mx-auto w-full max-w-5xl">
+          <Card className="student-content-card mt-9 student-homework-detail overflow-hidden p-0">
+           
+            <div className="student-homework-content">
+              <h3 className="break-words text-xl font-black leading-snug sm:text-2xl">
+                {task.title}
+              </h3>
+              <TaskContent
+                className="task-content-html"
+                contentBlocks={task.contentBlocks ?? []}
+                prompt={task.prompt}
+              />
+            </div>
+            <div className="student-homework-answer">
+              {task.type === "short_answer" ? (
+                <Input
+                  label="Cavabın"
+                  placeholder="Cavabını yaz"
+                  value={typeof answer === "string" ? answer : ""}
+                  onChange={(event) => setAnswer(event.currentTarget.value)}
+                />
+              ) : task.type === "drag_drop" ? (
+                <fieldset className="space-y-3">
+                  <legend className="text-sm font-medium">
+                    Cavab ardıcıllığını qurmaq üçün variantlara sıra ilə toxun
+                  </legend>
+                  <div
+                    className={
+                      task.options.some((option) => option.imageUrl)
+                        ? "grid grid-cols-2 gap-2"
+                        : "grid gap-2 sm:grid-cols-2"
+                    }
+                  >
+                    {task.options.map((option) => {
+                      const index = selectedIds.indexOf(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={index !== -1}
+                          onClick={() => selectOption(option.id)}
+                          className={`student-answer-option min-h-14 w-full rounded-2xl border-2 px-4 py-3 text-left text-sm font-bold transition ${
+                            index !== -1 ? "is-selected" : ""
+                          }`}
+                        >
+                          {index !== -1 && (
+                            <span className="student-answer-order mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold">
+                              {index + 1}
+                            </span>
+                          )}
+                          <TaskOptionContent option={option} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedIds.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="student-flat-button"
+                      onClick={() => setAnswer([])}
+                    >
+                      Seçimi sıfırla
+                    </Button>
+                  )}
+                </fieldset>
+              ) : (
+                <fieldset className="space-y-2">
+                  <legend className="mb-2 font-medium">
+                    {task.type === "multiple_choice"
+                      ? "Cavabları seç"
+                      : "Bir cavab seç"}
+                  </legend>
+                  <div
+                    className={
+                      task.options.some((option) => option.imageUrl)
+                        ? "grid grid-cols-2 gap-2"
+                        : "space-y-2"
+                    }
+                  >
+                    {task.options.map((option) => {
+                      const chosen = Array.isArray(answer)
+                        ? answer.includes(option.id)
+                        : answer === option.id;
+                      return (
+                        <label
+                          key={option.id}
+                          className={`student-answer-option flex min-h-14 min-w-0 cursor-pointer items-start gap-3 rounded-2xl border-2 px-4 py-3 font-bold transition ${
+                            chosen ? "is-selected" : ""
+                          }`}
+                        >
+                          <input
+                            type={
+                              task.type === "multiple_choice"
+                                ? "checkbox"
+                                : "radio"
+                            }
+                            name={`student-preview-${task._id}`}
+                            checked={chosen}
+                            onChange={() => selectOption(option.id)}
+                            className="h-5 w-5 shrink-0 accent-sky-600"
+                          />
+                          <TaskOptionContent option={option} />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="student-flat-button h-10 w-full rounded-xl px-2"
+                  disabled
+                >
+                  ← Əvvəlki
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="student-flat-button h-10 w-full px-2"
+                  disabled
+                >
+                  Təsdiqlə
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="student-flat-button h-10 w-full rounded-xl px-2"
+                  disabled
+                >
+                  Növbəti →
                 </Button>
               </div>
             </div>
